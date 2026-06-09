@@ -1,0 +1,1812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>JFT-Basic Kanji Learner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #FDFBF7; /* Eye-friendly off-white */
+            color: #333333;
+            -webkit-tap-highlight-color: transparent;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            margin: 0;
+        }
+        
+        .app-container {
+            max-width: 480px;
+            margin: 0 auto;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            background-color: #FDFBF7;
+            position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.05);
+        }
+
+        .page {
+            display: none;
+            flex-direction: column;
+            flex-grow: 1;
+            padding: 1.5rem;
+            animation: fadeIn 0.3s ease;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .page.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .kanji-display {
+            font-size: 5rem;
+            line-height: 1.2;
+            font-weight: 700;
+            text-align: center;
+            color: #2c3e50;
+        }
+
+        .card {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            border: 1px solid #f0f0f0;
+        }
+
+        /* Input fields styling */
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 0.875rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 0.75rem;
+            outline: none;
+            transition: border-color 0.2s;
+            font-size: 1rem;
+            background: white;
+        }
+        input[type="text"]:focus, input[type="number"]:focus {
+            border-color: #3b82f6;
+        }
+
+        /* Buttons */
+        .btn {
+            width: 100%;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            font-size: 1.125rem;
+            text-align: center;
+            transition: transform 0.1s, background-color 0.2s;
+            cursor: pointer;
+        }
+        .btn:active {
+            transform: scale(0.98);
+        }
+        .btn-primary { background-color: #3b82f6; color: white; }
+        .btn-primary:hover { background-color: #2563eb; }
+        .btn-success { background-color: #10b981; color: white; }
+        .btn-danger { background-color: #ef4444; color: white; }
+        .btn-outline { border: 2px solid #e2e8f0; background: white; color: #475569; }
+        .btn-outline.selected { border-color: #3b82f6; background-color: #eff6ff; color: #1d4ed8; }
+        .btn-outline.correct { border-color: #10b981; background-color: #ecfdf5; color: #047857; }
+        .btn-outline.wrong { border-color: #ef4444; background-color: #fef2f2; color: #b91c1c; }
+
+        .progress-bar {
+            height: 0.5rem;
+            background-color: #e2e8f0;
+            border-radius: 9999px;
+            overflow: hidden;
+            margin-bottom: 1.5rem;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #3b82f6;
+            transition: width 0.3s ease;
+        }
+
+        .jumble-char {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 3rem;
+            height: 3rem;
+            margin: 0.25rem;
+            background: white;
+            border: 2px solid #cbd5e1;
+            border-radius: 0.5rem;
+            font-size: 1.25rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 0 #cbd5e1;
+        }
+        .jumble-char:active {
+            transform: translateY(2px);
+            box-shadow: none;
+        }
+        .jumble-char.used {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+        .answer-slot {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 3rem;
+            height: 3rem;
+            margin: 0.25rem;
+            border: 2px dashed #94a3b8;
+            border-radius: 0.5rem;
+            font-size: 1.25rem;
+            font-weight: bold;
+            background: #f8fafc;
+        }
+        .answer-slot.filled {
+            border-style: solid;
+            border-color: #3b82f6;
+            background: white;
+            color: #1e40af;
+        }
+
+        /* Error and Success States */
+        .answer-slot.filled.error-state {
+            border-color: #ef4444;
+            background-color: #fef2f2;
+            color: #b91c1c;
+        }
+        .answer-slot.filled.success-state {
+            border-color: #10b981;
+            background-color: #ecfdf5;
+            color: #047857;
+        }
+        input.error-state {
+            border-color: #ef4444 !important;
+            background-color: #fef2f2 !important;
+        }
+        input.success-state {
+            border-color: #10b981 !important;
+            background-color: #ecfdf5 !important;
+        }
+
+        .trace-box {
+            width: 80px; height: 80px;
+            border: 2px dashed #cbd5e1;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: #94a3b8;
+            margin: 0 auto;
+        }
+
+        /* Animation Styles */
+        @keyframes popBlink {
+            0% { opacity: 0; transform: scale(0.5); }
+            50% { opacity: 1; transform: scale(1.3); }
+            100% { opacity: 0; transform: scale(1); }
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        .shake-anim {
+            animation: shake 0.3s ease-in-out;
+        }
+        .anim-star {
+            font-size: 6rem;
+            animation: popBlink 1.5s ease-in-out;
+        }
+        .anim-sakura {
+            font-size: 3.5rem;
+            animation: popBlink 1.5s ease-in-out infinite;
+            display: inline-block;
+            margin: 0.5rem;
+        }
+        .sakura-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <!-- PAGE: LOGIN -->
+    <div id="page-login" class="page active justify-center">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-blue-600 mb-2">JFT-Basic Kanji</h1>
+            <p class="text-stone-500">Master Japanese Vocabulary</p>
+        </div>
+        
+        <div class="card p-6 space-y-4">
+            <div id="login-error" class="hidden text-red-500 text-sm text-center font-medium bg-red-50 p-2 rounded">
+                ID and Name do not match.
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-stone-600 mb-1">Student ID</label>
+                <input type="text" id="login-id" value="">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-stone-600 mb-1">Name</label>
+                <input type="text" id="login-name" value="">
+            </div>
+            <button class="btn btn-primary mt-2" onclick="app.login()">Log In</button>
+        </div>
+    </div>
+
+    <!-- PAGE: SETUP -->
+    <div id="page-setup" class="page justify-center">
+        <div class="text-center mb-2 shrink-0">
+            <h2 class="text-2xl font-bold text-stone-800">Learning Setup</h2>
+        </div>
+
+        <div class="flex border-b border-stone-200 mb-4 shrink-0">
+            <button id="tab-setup-btn" class="flex-1 py-2 font-bold text-blue-600 border-b-2 border-blue-600 transition-colors" onclick="app.switchSetupTab('setup')">Range</button>
+            <button id="tab-list-btn" class="flex-1 py-2 font-bold text-stone-400 border-b-2 border-transparent transition-colors" onclick="app.switchSetupTab('list')">Kanji List</button>
+        </div>
+
+        <div id="tab-setup-content" class="card p-6 flex flex-col space-y-4 shrink-0">
+            <p class="text-stone-500 text-center mb-2">Total Words Available: <span id="total-kanji" class="font-bold text-blue-600"></span></p>
+            <div class="flex space-x-4">
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-stone-600 mb-1">Start No.</label>
+                    <input type="number" id="range-start" placeholder="1" min="1" value="1">
+                </div>
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-stone-600 mb-1">End No.</label>
+                    <input type="number" id="range-end" placeholder="19" value="19">
+                </div>
+            </div>
+            <button class="btn btn-primary mt-4" onclick="app.startApp()">Start Learning</button>
+        </div>
+
+        <div id="tab-list-content" class="hidden flex-1 overflow-y-auto card p-4 space-y-3">
+            <!-- List populated by JS -->
+        </div>
+    </div>
+
+    <!-- SHARED HEADER FOR ALL LEARNING STEPS -->
+    <div id="learning-header" class="hidden px-6 pt-6">
+        <div class="progress-bar">
+            <div id="main-progress" class="progress-fill" style="width: 0%;"></div>
+        </div>
+        <div class="flex justify-between items-end mb-4">
+            <h3 id="step-title" class="text-lg font-bold text-blue-600">Step 1: Learn</h3>
+            <span id="step-counter" class="text-sm font-medium text-stone-500">1/5</span>
+        </div>
+    </div>
+
+    <!-- PAGE: STEP 1 (MEMORIZATION) -->
+    <div id="page-step1" class="page pt-0">
+        <div id="round2-badge" class="hidden shrink-0 bg-orange-100 text-orange-700 text-xs font-bold px-3 py-1 rounded-full w-max mx-auto mb-3 border border-orange-200">
+            Round 2: Reviewing Unremembered
+        </div>
+        
+        <div class="card p-4 flex-grow flex flex-col justify-center mb-4 relative overflow-y-auto shrink">
+            <div class="absolute top-3 right-3 flex space-x-1">
+                 <span class="text-xs text-stone-400 bg-stone-100 px-2 py-1 rounded">No. <span id="s1-id"></span></span>
+            </div>
+            
+            <div class="flex flex-row space-x-3 items-stretch mt-6">
+                <!-- Left: Stroke & Kanji -->
+                <div class="flex-1 flex flex-col items-center justify-center bg-stone-50 rounded-xl p-3 border border-stone-100">
+                    <img src="image_5d78a9.png" onerror="this.style.display='none'" alt="Stroke Order" class="h-16 object-contain mb-3 mix-blend-multiply opacity-80">
+                    <div id="s1-kanji" class="kanji-display mb-1 text-5xl">名</div>
+                    <div id="s1-reading" class="text-stone-500 font-medium">な</div>
+                    <div id="s1-kanjiMeaning" class="text-[11px] font-bold text-blue-500 mt-2 uppercase tracking-wide"></div> <!-- Added Kanji Meaning -->
+                </div>
+                
+                <!-- Right: Word & Meaning -->
+                <div class="flex-1 flex flex-col items-center justify-center bg-blue-50/50 rounded-xl p-3 border border-blue-100">
+                    <div id="s1-word" class="text-2xl font-bold text-stone-800 mb-1">名前</div>
+                    <div id="s1-wordreading" class="text-blue-600 font-medium mb-4 text-sm">なまえ</div>
+                    
+                    <div class="w-full text-center space-y-2">
+                        <div>
+                            <span class="text-stone-400 block text-[10px] uppercase tracking-wider">Lao</span>
+                            <span id="s1-lao" class="font-medium text-stone-700 text-sm">ຊື່</span>
+                        </div>
+                        <div>
+                            <span class="text-stone-400 block text-[10px] uppercase tracking-wider">Thai</span>
+                            <span id="s1-thai" class="font-medium text-stone-700 text-sm">ชื่อ</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex space-x-3 mt-auto shrink-0 pb-2">
+            <button class="btn btn-danger flex-1" onclick="app.step1Answer(false)">Not Remember</button>
+            <button class="btn btn-success flex-1" onclick="app.step1Answer(true)">Remember</button>
+        </div>
+    </div>
+
+    <!-- PAGE: STEP 2 (QUIZ) -->
+    <div id="page-step2" class="page pt-0">
+        <div class="card p-4 flex-grow flex flex-col mb-4 overflow-y-auto shrink">
+            <div class="text-center mb-4 shrink-0">
+                <h4 id="s2-question-type" class="text-sm font-bold text-stone-500 uppercase tracking-wider mb-2">Select Reading</h4>
+                <div id="s2-target" class="text-3xl font-bold text-stone-800">名前</div>
+            </div>
+            
+            <div id="s2-options" class="flex flex-col space-y-2 mt-auto shrink-0 pb-1">
+                <!-- Options populated by JS -->
+            </div>
+        </div>
+        <button id="s2-next-btn" class="btn btn-primary mt-auto opacity-50 cursor-not-allowed shrink-0 pb-2 mb-2" disabled onclick="app.nextStep2()">Next Question</button>
+    </div>
+
+    <!-- PAGE: STEP 3 (REARRANGE) -->
+    <div id="page-step3" class="page pt-0">
+        <div class="card p-6 flex-grow flex flex-col items-center justify-center mb-4">
+            <h4 class="text-sm font-bold text-stone-500 uppercase tracking-wider mb-6">Spell the Reading</h4>
+            <div id="s3-target" class="text-5xl font-bold text-stone-800 mb-8">新しい</div>
+            
+            <div id="s3-answer-area" class="flex flex-wrap justify-center mb-8 min-h-[3.5rem]">
+                <!-- Slots populated by JS -->
+            </div>
+            
+            <div id="s3-jumble-area" class="flex flex-wrap justify-center mb-4">
+                <!-- Chars populated by JS -->
+            </div>
+
+            <button class="text-stone-400 text-sm font-medium underline mt-2" onclick="app.resetStep3()">Clear</button>
+        </div>
+        <button id="s3-next-btn" class="btn btn-primary mt-auto opacity-50 cursor-not-allowed" disabled onclick="app.nextStep3()">Next Word</button>
+    </div>
+
+    <!-- PAGE: STEP 4 (INPUT) -->
+    <div id="page-step4" class="page pt-0">
+        <div class="card p-6 flex-grow flex flex-col items-center justify-center mb-4">
+            <h4 class="text-sm font-bold text-stone-500 uppercase tracking-wider mb-6">Type the Reading</h4>
+            <div id="s4-target" class="text-5xl font-bold text-stone-800 mb-8">食べる</div>
+            
+            <div class="w-full relative flex flex-col space-y-3">
+                <input type="text" id="s4-input" placeholder="Type reading in Hiragana..." class="text-center text-lg py-4" onkeypress="if(event.key==='Enter') app.checkStep4Input()">
+                <button id="s4-check-btn" class="btn btn-outline" onclick="app.checkStep4Input()">Check Answer</button>
+                <div id="s4-feedback" class="text-center text-sm font-bold hidden h-5">Correct!</div>
+            </div>
+            
+            <div id="s4-hint-container" class="mt-4 text-center hidden">
+                <p class="text-xs text-stone-400 mb-1">Hint:</p>
+                <div id="s4-hint" class="text-xl tracking-widest font-bold text-blue-600"></div>
+            </div>
+        </div>
+        <button id="s4-next-btn" class="btn btn-primary mt-auto opacity-50 cursor-not-allowed shrink-0" disabled onclick="app.nextStep4()">Next Word</button>
+    </div>
+
+    <!-- PAGE: SUMMARY -->
+    <div id="page-summary" class="page justify-center">
+        <div class="text-center mb-6 shrink-0">
+            <h2 class="text-3xl font-bold text-blue-600 mb-1">Training Complete!</h2>
+            <p id="sum-message" class="text-stone-600 font-medium text-sm">Great job on finishing the lesson.</p>
+        </div>
+
+        <div class="card p-5 space-y-3 mb-4 bg-white border-none shadow-lg overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-stone-100 pb-2">
+                <span class="text-stone-500 font-medium text-sm">Student ID</span>
+                <span id="sum-user" class="font-bold text-stone-800 text-sm"></span>
+            </div>
+            <div class="flex justify-between items-center border-b border-stone-100 pb-2">
+                <span class="text-stone-500 font-medium text-sm">Date & Time</span>
+                <span id="sum-datetime" class="font-bold text-stone-800 text-xs text-right"></span>
+            </div>
+            <div class="flex justify-between items-center border-b border-stone-100 pb-2">
+                <span class="text-stone-500 font-medium text-sm">Time Used</span>
+                <span id="sum-time" class="font-bold text-stone-800 text-sm"></span>
+            </div>
+            <div class="flex justify-between items-center border-b border-stone-100 pb-2">
+                <span class="text-stone-500 font-medium text-sm">Study Range</span>
+                <span id="sum-range" class="font-bold text-stone-800 text-sm"></span>
+            </div>
+            
+            <div class="pt-2 text-xs font-bold text-stone-400 uppercase tracking-wider">First-Attempt Accuracy</div>
+            <div class="flex justify-between items-center border-b border-stone-100 pb-2">
+                <span class="text-stone-600 font-medium text-sm">Step 1 (Memorize)</span>
+                <span id="sum-acc-1" class="font-bold text-blue-600"></span>
+            </div>
+            <div class="flex justify-between items-center border-b border-stone-100 pb-2">
+                <span class="text-stone-600 font-medium text-sm">Step 2 (Quiz)</span>
+                <span id="sum-acc-2" class="font-bold text-blue-600"></span>
+            </div>
+            <div class="flex justify-between items-center border-b border-stone-100 pb-2">
+                <span class="text-stone-600 font-medium text-sm">Step 3 (Spell)</span>
+                <span id="sum-acc-3" class="font-bold text-blue-600"></span>
+            </div>
+            <div class="flex justify-between items-center pb-1">
+                <span class="text-stone-600 font-medium text-sm">Step 4 (Type)</span>
+                <span id="sum-acc-4" class="font-bold text-blue-600"></span>
+            </div>
+        </div>
+
+        <button class="btn btn-primary shrink-0" onclick="location.reload()">Back to Home</button>
+    </div>
+
+    <!-- ANIMATION OVERLAY -->
+    <div id="animation-overlay" class="absolute inset-0 z-50 pointer-events-none flex items-center justify-center hidden bg-white/90 backdrop-blur-sm transition-opacity duration-300">
+        <div id="animation-content" class="text-center"></div>
+    </div>
+
+</div>
+
+<script>
+// Mock User Database
+const usersDB = [
+    { id: "123", name: "Student" },
+    { id: "001", name: "Test" }
+];
+
+// Cleaned Data Source with Added kanjiMeaning
+const kanjiData = [
+    { id: 1, kanji: "名", kanjiMeaning: "ເຊື່", reading: "な", word: "名前", wordReading: "なまえ", lao: "ຊື່", thai: "ชื่อ" },
+    { id: 2, kanji: "前", kanjiMeaning: "ກ່ອນ / ທາງ​ໜ້າ", reading: "まえ", word: "名前", wordReading: "なまえ", lao: "ຊື່", thai: "ชื่อ" },
+    { id: 3, kanji: "国", kanjiMeaning: "ປະ​ເທດ", reading: "くに", word: "国", wordReading: "くに", lao: "ປະເທດ", thai: "ประเทศ" },
+    { id: 4, kanji: "私", kanjiMeaning: "ຂ້ອຍ / ສ່ວນ​ຕົວ", reading: "わたし", word: "私", wordReading: "わたし", lao: "ຂ້ອຍ", thai: "ฉัน" },
+    { id: 5, kanji: "父", kanjiMeaning: "ພໍ່", reading: "ちち", word: "父", wordReading: "ちち", lao: "ພໍ່", thai: "พ่อ" },
+    { id: 6, kanji: "母", kanjiMeaning: "ແມ່", reading: "はは", word: "母", wordReading: "はは", lao: "ແມ່", thai: "แม่" },
+    { id: 7, kanji: "子", kanjiMeaning: "ເດັກ​ນ້ອຍ", reading: "こ", word: "子ども", wordReading: "こども", lao: "ເດັກນ້ອຍ", thai: "เด็ก" },
+    { id: 8, kanji: "日", kanjiMeaning: "ມື້ / ຕາ​ເວັນ", reading: "ひ/び", word: "日本", wordReading: "にほん", lao: "ຍີ່ປຸ່ນ", thai: "ญี่ปุ่น" },
+    { id: 9, kanji: "本", kanjiMeaning: "ປຶ້ມ / ຕົ້ນ​ກຳ​ເນີດ", reading: "ほん", word: "日本", wordReading: "にほん", lao: "ຍີ່ປຸ່ນ", thai: "ญี่ปุ่น" },
+    { id: 10, kanji: "水", kanjiMeaning: "ນ້ຳ", reading: "みず", word: "水", wordReading: "みず", lao: "ນ້ຳ", thai: "น้ำ" },
+    { id: 11, kanji: "食", kanjiMeaning: "ກິນ", reading: "た(べる)", word: "食べます", wordReading: "たべます", lao: "ກິນ", thai: "กิน" },
+    { id: 12, kanji: "飲", kanjiMeaning: "ດື່ມ", reading: "の(む)", word: "飲みます", wordReading: "のみます", lao: "ດື່ມ", thai: "ดื่ม" },
+    { id: 13, kanji: "魚", kanjiMeaning: "ປາ", reading: "さかな", word: "魚", wordReading: "さかな", lao: "ປາ", thai: "ปลา" },
+    { id: 14, kanji: "肉", kanjiMeaning: "ອາ​ຫານ", reading: "にく", word: "肉", wordReading: "にく", lao: "ຊີ້ນ", thai: "เนื้อ" },
+    { id: 15, kanji: "好", kanjiMeaning: "ມັກ / Fond", reading: "す(き)", word: "好き", wordReading: "すき", lao: "ມັກ", thai: "ชอบ" },
+    { id: 16, kanji: "家", kanjiMeaning: "ເຮືອນ", reading: "いえ", word: "家", wordReading: "いえ", lao: "ເຮືອນ", thai: "บ้าน" },
+    { id: 17, kanji: "新", kanjiMeaning: "ໃໜ່", reading: "あたら(しい)", word: "新しい", wordReading: "あたらしい", lao: "ໃໝ່", thai: "ใหม่" },
+    { id: 18, kanji: "広", kanjiMeaning: "ກວ້າງ", reading: "ひろ(い)", word: "広い", wordReading: "ひろい", lao: "ກວ້າງ", thai: "กว้าง" },
+    { id: 19, kanji: "古", kanjiMeaning: "ກກົ່າ", reading: "ふる(い)", word: "古い", wordReading: "ふるい", lao: "ເກົ່າ", thai: "เก่า" },
+    { id: 21, kanji: "上", kanjiMeaning: "ເທິງ / ຂຶ້ນ", reading: "うえ", word: "上", wordReading: "うえ", lao: "ເທິງ", thai: "บน" },
+    { id: 22, kanji: "下", kanjiMeaning: "ລຸ່ມ / ຕ່ຳ​ກວ່າ", reading: "した", word: "下", wordReading: "した", lao: "ລຸ່ມ", thai: "ล่าง" },
+    { id: 23, kanji: "中", kanjiMeaning: "​ທາງ​ໃນ / ທາງ​ກາງ", reading: "なか", word: "中", wordReading: "なか", lao: "ໃນ", thai: "ใน" },
+    { id: 24, kanji: "日", kanjiMeaning: "ມື້ / ຕາ​​ເວັນ", reading: "ニチ", word: "日", wordReading: "にち", lao: "ວັນ", thai: "วัน" },
+    { id: 25, kanji: "日", kanjiMeaning: "ມື້ / ຕາ​​ເວັນ", reading: "ひ／び", word: "～曜日", wordReading: "～ようび", lao: "ວັນ", thai: "วัน" },
+    { id: 26, kanji: "水", kanjiMeaning: "ນ້ຳ", reading: "スイ", word: "水", wordReading: "すい", lao: "ນ້ຳ", thai: "น้ำ" },
+    { id: 27, kanji: "月", kanjiMeaning: "ເດືອນ / Month", reading: "ゲツ", word: "月", wordReading: "げつ", lao: "ເດືອນ", thai: "เดือน" },
+    { id: 28, kanji: "火", kanjiMeaning: "ໄຟ", reading: "カ", word: "火", wordReading: "か", lao: "ໄຟ", thai: "ไฟ" },
+    { id: 29, kanji: "木", kanjiMeaning: "ຕົ້ນ​ໄມ້ / ໄມ້", reading: "もく", word: "木", wordReading: "もく", lao: "ຕົ້ນໄມ້", thai: "ต้นไม้" },
+    { id: 30, kanji: "金", kanjiMeaning: "ຄຳ / ເງິນ", reading: "キン", word: "金", wordReading: "きん", lao: "ຄຳ/ເງິນ", thai: "ทอง/เงิน" },
+    { id: 31, kanji: "土", kanjiMeaning: "ໂລກ / ດິນ", reading: "ド", word: "土", wordReading: "ど", lao: "ດິນ", thai: "ดิน" },
+    { id: 32, kanji: "曜", kanjiMeaning: "ວັນ​ໃນ​ອາ​ທິດ", reading: "ヨウ", word: "～曜日", wordReading: "～ようび", lao: "ວັນ", thai: "วัน" },
+    { id: 33, kanji: "朝", kanjiMeaning: "ຕອນ​ເຊົ້າ", reading: "あさ", word: "朝", wordReading: "あさ", lao: "ຕອນເຊົ້າ", thai: "ตอนเช้า" },
+    { id: 34, kanji: "昼", kanjiMeaning: "ຕອນ​ສວາຍ / ຕອນ​ເວັນ", reading: "ひる", word: "昼", wordReading: "ひる", lao: "ກາງເວັນ", thai: "ตอนกลางวัน" },
+    { id: 35, kanji: "夜", kanjiMeaning: " ຕອນ​ຄ່ຳ", reading: "よる", word: "夜", wordReading: "よる", lao: "ກາງຄືນ", thai: "กลางคืน" },
+    { id: 36, kanji: "時", kanjiMeaning: "ໂມງ / ຊົ່ວ​ໂມງ", reading: "ジ", word: "～時", wordReading: "～じ", lao: "ໂມງ", thai: "โมง" },
+    { id: 37, kanji: "分", kanjiMeaning: "ນາ​ທີ/ ສ່ວນ", reading: "フン／ブン／プン", word: "～分", wordReading: "～ふん", lao: "ນາທີ", thai: "นาที" },
+    { id: 38, kanji: "半", kanjiMeaning: "ເຄິ່ງ", reading: "ハン", word: "～半", wordReading: "～はん", lao: "ເຄິ່ງ", thai: "ครึ่ง" },
+    { id: 39, kanji: "枚", kanjiMeaning: "ລັກ​ສະ​ນະ​ນາມ​ຂອງ​ແນວ​ແປໆ​ບາງໆ", reading: "マイ", word: "～枚", wordReading: "～まい", lao: "ແຜ່ນ", thai: "แผ่น" },
+    { id: 40, kanji: "本", kanjiMeaning: "ປຶ້ມ / ຕົ້ນ​ກຳ​ເນີດ", reading: "ホン", word: "本", wordReading: "ほん", lao: "ປຶ້ມ", thai: "หนังสือ" },
+    { id: 41, kanji: "読", kanjiMeaning: "ອ່ານ", reading: "よ（む）", word: "読みます", wordReading: "よみます", lao: "ອ່ານ", thai: "อ่าน" },
+    { id: 42, kanji: "聞", kanjiMeaning: "ຟັງ / ໄດ້​ຍິນ", reading: "き（く）", word: "聞きます", wordReading: "ききます", lao: "ຟັງ", thai: "ฟัง" },
+    { id: 43, kanji: "見", kanjiMeaning: "ເຫັນ / ເບິ່ງ", reading: "み（る）", word: "見ます", wordReading: "みます", lao: "ເບິ່ງ", thai: "ดู" },
+    { id: 44, kanji: "友", kanjiMeaning: "ໝູ່", reading: "とも", word: "友だち", wordReading: "ともだち", lao: "ໝູ່", thai: "เพื่อน" },
+    { id: 45, kanji: "何", kanjiMeaning: "ຫຍັງ", reading: "なに", word: "何", wordReading: "なに", lao: "ຫຍັງ", thai: "อะไร" },
+    { id: 46, kanji: "日", kanjiMeaning: "ມື້ / ຕາ​ເວັນ", reading: "ニチ", word: "～日", wordReading: "～にち", lao: "ວັນ", thai: "วัน" },
+    { id: 47, kanji: "日", kanjiMeaning: "ມື້ / ຕາ​ເວັນ", reading: "*ວິ​ທີ​ອ່ານ​ພິ​ເສດ", word: "今日", wordReading: "きょう", lao: "ມື້ນີ້", thai: "วันนี้" },
+    { id: 48, kanji: "月", kanjiMeaning: "​ເດືອນ / ດວງ​ເດືອນ", reading: "ガツ", word: "～月", wordReading: "～がつ", lao: "ເດືອນ", thai: "เดือน" },
+    { id: 49, kanji: "年", kanjiMeaning: "ປີ", reading: "ネン", word: "～年", wordReading: "～ねん", lao: "ປີ", thai: "ปี" },
+    { id: 50, kanji: "今", kanjiMeaning: "ນີ້", reading: "*特別な読み方", word: "今日", wordReading: "きょう", lao: "ມື້ນີ້", thai: "วันนี้" },
+    { id: 51, kanji: "今", kanjiMeaning: "ນີ້", reading: "コン", word: "今週", wordReading: "こんしゅう", lao: "ອາທິດນີ້", thai: "สัปดาห์นี้" },
+    { id: 52, kanji: "今", kanjiMeaning: "ນີ້", reading: "コン", word: "今度", wordReading: "こんど", lao: "ຄັ້ງໜ້າ", thai: "ครั้งหน้า" },
+    { id: 53, kanji: "週", kanjiMeaning: "ອາ​ທິດ", reading: "シュウ", word: "今週", wordReading: "こんしゅう", lao: "ອາທິດນີ້", thai: "สัปดาห์นี้" },
+    { id: 54, kanji: "度", kanjiMeaning: "ລະ​ດັບ / ຄັ້ງ", reading: "ド", word: "今度", wordReading: "こんど", lao: "ຄັ້ງໜ້າ", thai: "ครั้งหน้า" },
+    { id: 55, kanji: "東", kanjiMeaning: "ຕາ​ເວັນອອກ", reading: "ひがし", word: "東", wordReading: "ひがし", lao: "ຕາເວັນອອກ", thai: "ตะวันออก" },
+    { id: 56, kanji: "西", kanjiMeaning: "ຕາ​ເວັນ​ຕົກ", reading: "にし", word: "西", wordReading: "にし", lao: "ຕາເວັນຕົກ", thai: "ตะวันตก" },
+    { id: 57, kanji: "南", kanjiMeaning: "ທິດ​ໃຕ້", reading: "みなみ", word: "南", wordReading: "みなみ", lao: "ໃຕ້", thai: "ใต้" },
+    { id: 58, kanji: "北", kanjiMeaning: "ທິດ​ເໜືອ", reading: "きた", word: "北", wordReading: "きた", lao: "ເໜືອ", thai: "เหนือ" },
+    { id: 59, kanji: "会", kanjiMeaning: "ພົບ​ / ສັງ​ຄົມ", reading: "カイ", word: "会社", wordReading: "かいしゃ", lao: "ບໍລິສັດ", thai: "บริษัท" },
+    { id: 60, kanji: "社", kanjiMeaning: "ບໍ​ລິ​ສັດ / ສານ​ເຈົ້າ", reading: "シャ", word: "会社", wordReading: "かいしゃ", lao: "ບໍລິສັດ", thai: "บริษัท" },
+    { id: 61, kanji: "来", kanjiMeaning: "ມາ", reading: "く（る）／き（ます）", word: "来ます", wordReading: "きます", lao: "ມາ", thai: "มา" },
+    { id: 62, kanji: "行", kanjiMeaning: "ໄປ", reading: "い（く）", word: "行きます", wordReading: "いきます", lao: "ໄປ", thai: "ไป" },
+    { id: 63, kanji: "乗", kanjiMeaning: "ຂີ່", reading: "の（る）", word: "乗ります", wordReading: "のります", lao: "ຂີ່ / ຂຶ້ນ", thai: "ขึ้น / ขี่" },
+    { id: 64, kanji: "前", kanjiMeaning: "ກ່ອນ / ທາງ​ໜ້າ", reading: "まえ", word: "前", wordReading: "まえ", lao: "ທາງໜ້າ", thai: "ข้างหน้า" },
+    { id: 65, kanji: "大", kanjiMeaning: "ໃຫຍ່", reading: "おお（きい）", word: "大きい", wordReading: "おおきい", lao: "ໃຫຍ່", thai: "ใหญ่" },
+    { id: 66, kanji: "小", kanjiMeaning: "ນ້ອຍ", reading: "ちい（さい）", word: "小さい", wordReading: "ちいさい", lao: "ນ້ອຍ", thai: "เล็ก" },
+    { id: 67, kanji: "高", kanjiMeaning: "ສູງ / ແພງ", reading: "たか（い）", word: "高い", wordReading: "たかい", lao: "ສູງ / ແພງ", thai: "สูง / แพง" },
+    { id: 68, kanji: "低", kanjiMeaning: "ຕ່ຳ", reading: "ひく（い）", word: "低い", wordReading: "ひくい", lao: "ຕ່ຳ", thai: "ต่ำ / เตี้ย" },
+    { id: 69, kanji: "後", kanjiMeaning: "ທາງ​ຫຼັງ / ຫຼັງ​ຈາກ", reading: "うし（ろ）", word: "後ろ", wordReading: "うしろ", lao: "ທາງຫຼັງ", thai: "ข้างหลัง" },
+    { id: 70, kanji: "横", kanjiMeaning: "ເບື້ອງ / ລວງ​ນອນ", reading: "よこ", word: "横", wordReading: "よこ", lao: "ທາງຂ້າງ", thai: "ด้านข้าง" },
+    { id: 71, kanji: "入", kanjiMeaning: "ເຂົ້າ​ໄປ", reading: "い（り）", word: "入口", wordReading: "いりぐち", lao: "ທາງເຂົ້າ", thai: "ทางเข้า" },
+    { id: 72, kanji: "口", kanjiMeaning: "ປາກ", reading: "くち／ぐち", word: "入口", wordReading: "いりぐち", lao: "ທາງເຂົ້າ", thai: "ทางเข้า" },
+    { id: 73, kanji: "口", kanjiMeaning: "ປາກ", reading: "くち／ぐち", word: "出口", wordReading: "でぐち", lao: "ທາງອອກ", thai: "ทางออก" },
+    { id: 74, kanji: "出", kanjiMeaning: "ອອກ / ຈາກ​ໄປ​", reading: "で（る）", word: "出口", wordReading: "でぐち", lao: "ທາງອອກ", thai: "ทางออก" },
+    { id: 75, kanji: "階", kanjiMeaning: "ຊັ້ນ", reading: "カイ", word: "～階", wordReading: "～かい", lao: "ຊັ້ນ", thai: "ชั้น" },
+    { id: 76, kanji: "押", kanjiMeaning: "ຍູ້", reading: "お（す）", word: "押す", wordReading: "おす", lao: "ຍູ້ / ກົດ", thai: "ผลัก / กด" },
+    { id: 77, kanji: "引", kanjiMeaning: "ດຶງ", reading: "ひ（く）", word: "引く", wordReading: "ひく", lao: "ດຶງ", thai: "ดึง" },
+    { id: 78, kanji: "安", kanjiMeaning: "ລາ​ຄາ​ຖືກ / ສະ​ຫງົບ", reading: "やす（い）", word: "安い", wordReading: "やすい", lao: "ຖືກ", thai: "ถูก" },
+    { id: 79, kanji: "一", kanjiMeaning: "ໜຶ່ງ", reading: "イチ", word: "一", wordReading: "いち", lao: "ໜຶ່ງ", thai: "หนึ่ง" },
+    { id: 80, kanji: "二", kanjiMeaning: "ສອງ", reading: "ニ", word: "二", wordReading: "に", lao: "ສອງ", thai: "สอง" },
+{ id: 81, kanji: "三", kanjiMeaning: "ສາມ", reading: "サン", word: "三", wordReading: "さん", lao: "ສາມ", thai: "สาม" },
+    { id: 82, kanji: "四", kanjiMeaning: "ສີ່", reading: "よん", word: "四", wordReading: "よん", lao: "ສີ່", thai: "สี่" },
+    { id: 83, kanji: "五", kanjiMeaning: "ຫ້າ", reading: "ゴ", word: "五", wordReading: "ご", lao: "ຫ້າ", thai: "ห้า" },
+    { id: 84, kanji: "六", kanjiMeaning: "ຫົກ", reading: "ロク", word: "六", wordReading: "ろく", lao: "ຫົກ", thai: "หก" },
+    { id: 85, kanji: "七", kanjiMeaning: "ເຈັດ", reading: "なな", word: "七", wordReading: "なな", lao: "ເຈັດ", thai: "เจ็ด" },
+    { id: 86, kanji: "八", kanjiMeaning: "ແປດ", reading: "ハチ", word: "八", wordReading: "はち", lao: "ແປດ", thai: "แปด" },
+    { id: 87, kanji: "九", kanjiMeaning: "ເກົ້າ", reading: "キュウ", word: "九", wordReading: "きゅう", lao: "ເກົ້າ", thai: "เก้า" },
+    { id: 88, kanji: "十", kanjiMeaning: "ສິບ", reading: "ジュウ", word: "十", wordReading: "じゅう", lao: "ສິບ", thai: "สิบ" },
+    { id: 89, kanji: "日", kanjiMeaning: "ມື້/ຕາເວັນ", reading: "*特別な読み方", word: "日本語", wordReading: "にほんご", lao: "ພາສາຍີ່ປຸ່ນ", thai: "ภาษาญี่ปุ่น" },
+    { id: 90, kanji: "本", kanjiMeaning: "ປຶ້ມ/ຕົ້ນກຳເນີດ", reading: "ホン", word: "日本語", wordReading: "にほんご", lao: "ພາສາຍີ່ປຸ່ນ", thai: "ภาษาญี่ปุ่น" },
+    { id: 91, kanji: "百", kanjiMeaning: "ຮ້ອຍ", reading: "ヒャク", word: "百", wordReading: "ひゃく", lao: "ຮ້ອຍ", thai: "ร้อย" },
+    { id: 92, kanji: "千", kanjiMeaning: "ພັນ", reading: "セン", word: "千", wordReading: "せん", lao: "ພັນ", thai: "พัน" },
+    { id: 93, kanji: "万", kanjiMeaning: "ໝື່ນ", reading: "マン", word: "万", wordReading: "まん", lao: "ໝື່ນ", thai: "หมื่น" },
+    { id: 94, kanji: "円", kanjiMeaning: "ເຢນ", reading: "エン", word: "～円", wordReading: "～えん", lao: "ເຢນ", thai: "เยน" },
+    { id: 95, kanji: "休", kanjiMeaning: "ພັກຜ່ອນ", reading: "やす（み）", word: "休み", wordReading: "やすみ", lao: "ພັກຜ່ອນ/ມື້ພັກ", thai: "วันหยุด/พักผ่อน" },
+    { id: 96, kanji: "映", kanjiMeaning: "ສະທ້ອນ", reading: "エイ", word: "映画", wordReading: "えいが", lao: "ຮູບເງົາ", thai: "ภาพยนตร์" },
+    { id: 97, kanji: "画", kanjiMeaning: "ຮູບພາບ", reading: "ガ", word: "映画", wordReading: "えいが", lao: "ຮູບເງົາ", thai: "ภาพยนตร์" },
+    { id: 98, kanji: "語", kanjiMeaning: "ພາສາ", reading: "ゴ", word: "日本語", wordReading: "にほんご", lao: "ພາສາຍີ່ປຸ່ນ", thai: "ภาษาญี่ปุ่น" },
+    { id: 99, kanji: "勉", kanjiMeaning: "ພະຍາຍາມ", reading: "ベン", word: "勉強します", wordReading: "べんきょうします", lao: "ຮຽນ", thai: "เรียน" },
+    { id: 100, kanji: "強", kanjiMeaning: "ແຂງແຮງ", reading: "キョウ", word: "勉強します", wordReading: "べんきょうします", lao: "ຮຽນ", thai: "เรียน" },
+{ id: 101, kanji: "買", kanjiMeaning: "ຊື້", reading: "か（う）", word: "買います", wordReading: "かいます", lao: "ຊື້", thai: "ซื้อ" },
+    { id: 102, kanji: "週", kanjiMeaning: "ອາທິດ", reading: "シュウ", word: "来週", wordReading: "らいしゅう", lao: "ອາທິດໜ້າ", thai: "สัปดาห์หน้า" },
+    { id: 103, kanji: "会", kanjiMeaning: "ພົບ", reading: "あ（う）", word: "会います", wordReading: "あいます", lao: "ພົບ/ເຈິ", thai: "พบ/เจอ" },
+    { id: 104, kanji: "来", kanjiMeaning: "ມາ", reading: "ライ", word: "来週", wordReading: "らいしゅう", lao: "ອາທິດໜ້າ", thai: "สัปดาห์หน้า" },
+    { id: 105, kanji: "行", kanjiMeaning: "ໄປ", reading: "コウ", word: "旅行します", wordReading: "りょこうします", lao: "ທ່ອງທ່ຽວ", thai: "ท่องเที่ยว" },
+    { id: 106, kanji: "入", kanjiMeaning: "ເຂົ້າ", reading: "はい（る）", word: "入ります", wordReading: "はいります", lao: "ເຂົ້າ", thai: "เข้า" },
+    { id: 107, kanji: "温", kanjiMeaning: "ອຸ່ນ", reading: "オン", word: "温泉", wordReading: "おんせん", lao: "ນ້ຳພຸຮ້ອນ", thai: "น้ำพุร้อน" },
+    { id: 108, kanji: "泉", kanjiMeaning: "ນ້ຳພຸ", reading: "セン", word: "温泉", wordReading: "おんせん", lao: "ນ້ຳພຸຮ້ອນ", thai: "น้ำพุร้อน" },
+    { id: 109, kanji: "予", kanjiMeaning: "ລ່ວງໜ້າ", reading: "ヨ", word: "予定", wordReading: "よてい", lao: "ກຳນົດການ/ແຜນການ", thai: "กำหนดการ/แผนการ" },
+    { id: 110, kanji: "定", kanjiMeaning: "ກຳນົດ", reading: "テイ", word: "予定", wordReading: "よてい", lao: "ກຳນົດການ/ແຜນການ", thai: "กำหนดการ/แผนการ" },
+    { id: 111, kanji: "旅", kanjiMeaning: "ທ່ອງທ່ຽວ", reading: "リョ", word: "旅行します", wordReading: "りょこうします", lao: "ທ່ອງທ່ຽວ", thai: "ท่องเที่ยว" },
+    { id: 112, kanji: "年", kanjiMeaning: "ປີ", reading: "ネン", word: "去年", wordReading: "きょねん", lao: "ປີກາຍ", thai: "ปีที่แล้ว" },
+    { id: 113, kanji: "週", kanjiMeaning: "ອາທິດ", reading: "シュウ", word: "先週", wordReading: "せんしゅう", lao: "ອາທິດແລ້ວ", thai: "สัปดาห์ที่แล้ว" },
+    { id: 114, kanji: "学", kanjiMeaning: "ຮຽນ", reading: "ガク", word: "学生", wordReading: "がくせい", lao: "ນັກຮຽນ/ນັກສຶກສາ", thai: "นักเรียน/นักศึกษา" },
+    { id: 115, kanji: "学", kanjiMeaning: "ຮຽນ", reading: "ガク／ガッ", word: "学校", wordReading: "がっこう", lao: "ໂຮງຮຽນ", thai: "โรงเรียน" },
+    { id: 116, kanji: "生", kanjiMeaning: "ເກີດ/ຊີວິດ", reading: "セイ", word: "学生", wordReading: "がくせい", lao: "ນັກຮຽນ/ນັກສຶກສາ", thai: "นักเรียน/นักศึกษา" },
+    { id: 117, kanji: "生", kanjiMeaning: "ເກີດ/ຊີວິດ", reading: "セイ", word: "生活", wordReading: "せいかつ", lao: "ການດຳລົງຊີວິດ", thai: "การใช้ชีวิต" },
+    { id: 118, kanji: "校", kanjiMeaning: "ໂຮງຮຽນ", reading: "コウ", word: "学校", wordReading: "がっこう", lao: "ໂຮງຮຽນ", thai: "โรงเรียน" },
+    { id: 119, kanji: "活", kanjiMeaning: "ມີຊີວິດຊີວາ", reading: "カツ", word: "生活", wordReading: "せいかつ", lao: "ການດຳລົງຊີວິດ", thai: "การใช้ชีวิต" },
+    { id: 120, kanji: "去", kanjiMeaning: "ຜ່ານໄປ", reading: "キョ", word: "去年", wordReading: "きょねん", lao: "ປີກາຍ", thai: "ปีที่แล้ว" },
+{ id: 121, kanji: "先", kanjiMeaning: "ກ່ອນ", reading: "セン", word: "先週", wordReading: "せんしゅう", lao: "ອາທິດແລ້ວ", thai: "สัปดาห์ที่แล้ว" },
+    { id: 122, kanji: "仕", kanjiMeaning: "ເຮັດວຽກ", reading: "シ", word: "仕事", wordReading: "しごと", lao: "ວຽກ", thai: "งาน" },
+    { id: 123, kanji: "事", kanjiMeaning: "ເລື່ອງ/ວຽກ", reading: "こと／ごと", word: "仕事", wordReading: "しごと", lao: "ວຽກ", thai: "งาน" },
+    { id: 124, kanji: "元", kanjiMeaning: "ຕົ້ນກຳເນີດ", reading: "ゲン", word: "元気（な）", wordReading: "げんき（な）", lao: "ແຂງແຮງ/ສະບາຍດີ", thai: "สบายดี/แข็งแรง" },
+    { id: 125, kanji: "気", kanjiMeaning: "ພະລັງງານ/ຄວາມຮູ້ສຶກ", reading: "キ", word: "元気（な）", wordReading: "げんき（な）", lao: "ແຂງແຮງ/ສະບາຍດີ", thai: "สบายดี/แข็งแรง" },
+    { id: 126, kanji: "忙", kanjiMeaning: "ຄາວຽກ", reading: "いそが（しい）", word: "忙しい", wordReading: "いそがしい", lao: "ຫຍຸ້ງ/ຄາວຽກ", thai: "ยุ่ง" },
+    { id: 127, kanji: "働", kanjiMeaning: "ເຮັດວຽກ", reading: "はたら（く）", word: "働く", wordReading: "はたらく", lao: "ເຮັດວຽກ", thai: "ทำงาน" },
+    { id: 128, kanji: "作", kanjiMeaning: "ເຮັດ/ສ້າງ", reading: "つく（る）", word: "作る", wordReading: "つくる", lao: "ເຮັດ/ສ້າງ", thai: "ทำ/สร้าง" },
+    { id: 129, kanji: "家", kanjiMeaning: "ເຮືອນ/ຄອບຄົວ", reading: "カ", word: "家族", wordReading: "かぞく", lao: "ຄອບຄົວ", thai: "ครอบครัว" },
+    { id: 130, kanji: "出", kanjiMeaning: "ອອກໄປ", reading: "で（かける）", word: "出かける", wordReading: "でかける", lao: "ອອກໄປຂ້າງນອກ", thai: "ออกไปข้างนอก" },
+    { id: 131, kanji: "語", kanjiMeaning: "ພາສາ", reading: "ゴ", word: "英語", wordReading: "えいご", lao: "ພາສາອັງກິດ", thai: "ภาษาอังกฤษ" },
+    { id: 132, kanji: "人", kanjiMeaning: "ຄົນ", reading: "ひと", word: "人", wordReading: "ひと", lao: "ຄົນ", thai: "คน" },
+    { id: 133, kanji: "人", kanjiMeaning: "ຄົນ", reading: "ニン", word: "～人", wordReading: "～にん", lao: "～ຄົນ", thai: "～คน" },
+    { id: 134, kanji: "人", kanjiMeaning: "ຄົນ", reading: "ジン", word: "～人", wordReading: "～じん", lao: "ຄົນ～ (ສັນຊາດ)", thai: "ชาว～ (สัญชาติ)" },
+    { id: 135, kanji: "犬", kanjiMeaning: "ໝາ", reading: "いぬ", word: "犬", wordReading: "いぬ", lao: "ໝາ", thai: "หมา/สุนัข" },
+    { id: 136, kanji: "族", kanjiMeaning: "ຊົນເຜົ່າ/ຄອບຄົວ", reading: "ゾク", word: "家族", wordReading: "かぞく", lao: "ຄອບຄົວ", thai: "ครอบครัว" },
+    { id: 137, kanji: "夕", kanjiMeaning: "ຕອນແລງ", reading: "ゆう", word: "夕方", wordReading: "ゆうがた", lao: "ຕອນແລງ", thai: "ตอนเย็น" },
+    { id: 138, kanji: "方", kanjiMeaning: "ທິດທາງ/ວິທີ", reading: "かた／がた", word: "夕方", wordReading: "ゆうがた", lao: "ຕອນແລງ", thai: "ตอนเย็น" },
+    { id: 139, kanji: "英", kanjiMeaning: "ອັງກິດ/ດີເລີດ", reading: "エイ", word: "英語", wordReading: "えいご", lao: "ພາສາອັງກິດ", thai: "ภาษาอังกฤษ" },
+    { id: 140, kanji: "音", kanjiMeaning: "ສຽງ", reading: "オン", word: "音楽", wordReading: "おんがく", lao: "ດົນຕີ", thai: "ดนตรี" },
+{ id: 141, kanji: "楽", kanjiMeaning: "ມ່ວນຊື່ນ/ດົນຕີ", reading: "ガク", word: "音楽", wordReading: "おんがく", lao: "ດົນຕີ", thai: "ดนตรี" },
+    { id: 142, kanji: "習", kanjiMeaning: "ຮຽນ/ຝຶກ", reading: "なら（う）", word: "習う", wordReading: "ならう", lao: "ຮຽນ", thai: "เรียน" },
+    { id: 143, kanji: "話", kanjiMeaning: "ລົມ/ເວົ້າ", reading: "はな（す）", word: "話す", wordReading: "はなす", lao: "ລົມ/ເວົ້າ", thai: "พูด/คุย" },
+    { id: 144, kanji: "季", kanjiMeaning: "ລະດູ", reading: "キ", word: "季節", wordReading: "きせつ", lao: "ລະດູການ", thai: "ฤดูกาล" },
+    { id: 145, kanji: "節", kanjiMeaning: "ລະດູ/ຂໍ້", reading: "セツ", word: "季節", wordReading: "きせつ", lao: "ລະດູການ", thai: "ฤดูกาล" },
+    { id: 146, kanji: "春", kanjiMeaning: "ລະດູໃບໄມ້ປົ່ງ", reading: "はる", word: "春", wordReading: "はる", lao: "ລະດູໃບໄມ້ປົ່ງ", thai: "ฤดูใบไม้ผลิ" },
+    { id: 147, kanji: "夏", kanjiMeaning: "ລະດູຮ້ອນ", reading: "なつ", word: "夏", wordReading: "なつ", lao: "ລະດູຮ້ອນ", thai: "ฤดูร้อน" },
+    { id: 148, kanji: "秋", kanjiMeaning: "ລະດູໃບໄມ້ຫຼົ່ນ", reading: "あき", word: "秋", wordReading: "あき", lao: "ລະດູໃບໄມ້ຫຼົ່ນ", thai: "ฤดูใบไม้ร่วง" },
+    { id: 149, kanji: "冬", kanjiMeaning: "ລະດູໜາວ", reading: "ふゆ", word: "冬", wordReading: "ふゆ", lao: "ລະດູໜາວ", thai: "ฤดูหนาว" },
+    { id: 150, kanji: "花", kanjiMeaning: "ດອກໄມ້", reading: "はな", word: "花", wordReading: "はな", lao: "ດອກໄມ້", thai: "ดอกไม้" },
+    { id: 151, kanji: "同", kanjiMeaning: "ຄືກັນ", reading: "おな（じ）", word: "同じ", wordReading: "おなじ", lao: "ຄືກັນ/ອັນດຽວກັນ", thai: "เหมือนกัน/เดียวกัน" },
+    { id: 152, kanji: "暑", kanjiMeaning: "ຮ້ອນ", reading: "あつ（い）", word: "暑い", wordReading: "あつい", lao: "ຮ້ອນ (ອາກາດ)", thai: "ร้อน (อากาศ)" },
+    { id: 153, kanji: "寒", kanjiMeaning: "ໜາວ", reading: "さむ（い）", word: "寒い", wordReading: "さむい", lao: "ໜາວ (ອາກາດ)", thai: "หนาว (อากาศ)" },
+    { id: 154, kanji: "日", kanjiMeaning: "ມື້/ຕາເວັນ", reading: "*特別な読み方", word: "昨日", wordReading: "きのう", lao: "ມື້ວານນີ້", thai: "เมื่อวานนี้" },
+    { id: 155, kanji: "日", kanjiMeaning: "ມື້/ຕາເວັນ", reading: "*特別な読み方", word: "明日", wordReading: "あした", lao: "ມື້ອື່ນ", thai: "พรุ่งนี้" },
+    { id: 156, kanji: "日", kanjiMeaning: "ມື້/ຕາເວັນ", reading: "ニチ", word: "毎日", wordReading: "まいにち", lao: "ທຸກໆມື້", thai: "ทุกๆ วัน" },
+    { id: 157, kanji: "今", kanjiMeaning: "ຕອນນີ້/ດຽວນີ້", reading: "いま", word: "今", wordReading: "いま", lao: "ຕອນນີ້", thai: "ตอนนี้" },
+    { id: 158, kanji: "強", kanjiMeaning: "ແຂງແຮງ", reading: "つよ（い）", word: "強い", wordReading: "つよい", lao: "ແຂງແຮງ/ແຮງ", thai: "แข็งแรง/แรง" },
+    { id: 159, kanji: "気", kanjiMeaning: "ອາກາດ/ຄວາມຮູ້ສຶກ", reading: "キ", word: "天気", wordReading: "てんき", lao: "ສະພາບອາກາດ", thai: "สภาพอากาศ" },
+    { id: 160, kanji: "天", kanjiMeaning: "ທ້ອງຟ້າ", reading: "テン", word: "天気", wordReading: "てんき", lao: "ສະພາບອາກາດ", thai: "สภาพอากาศ" },
+{ id: 161, kanji: "晴", kanjiMeaning: "ແຈ້ງ/ແດດອອກ", reading: "は（れ）", word: "晴れ", wordReading: "はれ", lao: "ແຈ້ງ/ແດດອອກ", thai: "แจ่มใส/แดดออก" },
+    { id: 162, kanji: "雨", kanjiMeaning: "ຝົນ", reading: "あめ", word: "雨", wordReading: "あめ", lao: "ຝົນ", thai: "ฝน" },
+    { id: 163, kanji: "雪", kanjiMeaning: "ຫິມະ", reading: "ゆき", word: "雪", wordReading: "ゆき", lao: "ຫິມະ", thai: "หิมะ" },
+    { id: 164, kanji: "風", kanjiMeaning: "ລົມ", reading: "かぜ", word: "風", wordReading: "かぜ", lao: "ລົມ", thai: "ลม" },
+    { id: 165, kanji: "昨", kanjiMeaning: "ຜ່ານມາ", reading: "*特別な読み方", word: "昨日", wordReading: "きのう", lao: "ມື້ວານນີ້", thai: "เมื่อวานนี้" },
+    { id: 166, kanji: "明", kanjiMeaning: "ແຈ້ງ/ສະຫວ່າງ", reading: "*特別な読み方", word: "明日", wordReading: "あした", lao: "ມື້ອື່ນ", thai: "พรุ่งนี้" },
+    { id: 167, kanji: "毎", kanjiMeaning: "ທຸກໆ", reading: "マイ", word: "毎日", wordReading: "まいにち", lao: "ທຸກໆມື້", thai: "ทุกๆ วัน" },
+    { id: 168, kanji: "名", kanjiMeaning: "ຊື່", reading: "メイ", word: "有名（な）", wordReading: "ゆうめい（な）", lao: "ມີຊື່ສຽງ", thai: "มีชื่อเสียง" },
+    { id: 169, kanji: "食", kanjiMeaning: "ກິນ", reading: "ショク", word: "食堂", wordReading: "しょくどう", lao: "ໂຮງອາຫານ", thai: "โรงอาหาร" },
+    { id: 170, kanji: "町", kanjiMeaning: "ເມືອງ", reading: "まち", word: "町", wordReading: "まち", lao: "ເມືອງ", thai: "เมือง" },
+    { id: 171, kanji: "店", kanjiMeaning: "ຮ້ານ", reading: "みせ", word: "店", wordReading: "みせ", lao: "ຮ້ານ", thai: "ร้าน" },
+    { id: 172, kanji: "堂", kanjiMeaning: "ຫ້ອງໂຖງ", reading: "ドウ", word: "食堂", wordReading: "しょくどう", lao: "ໂຮງອາຫານ", thai: "โรงอาหาร" },
+    { id: 173, kanji: "便", kanjiMeaning: "ສະດວກ", reading: "ベン", word: "便利（な）", wordReading: "べんり（な）", lao: "ສະດວກ", thai: "สะดวก" },
+    { id: 174, kanji: "便", kanjiMeaning: "ສະດວກ", reading: "ベン", word: "不便（な）", wordReading: "ふべん（な）", lao: "ບໍ່ສະດວກ", thai: "ไม่สะดวก" },
+    { id: 175, kanji: "利", kanjiMeaning: "ຜົນປະໂຫຍດ", reading: "リ", word: "便利（な）", wordReading: "べんり（な）", lao: "ສະດວກ", thai: "สะดวก" },
+    { id: 176, kanji: "不", kanjiMeaning: "ບໍ່", reading: "フ", word: "不便（な）", wordReading: "ふべん（な）", lao: "ບໍ່ສະດວກ", thai: "ไม่สะดวก" },
+    { id: 177, kanji: "静", kanjiMeaning: "ງຽບ", reading: "しず（か）", word: "静か（な）", wordReading: "しずか（な）", lao: "ງຽບ", thai: "เงียบ" },
+    { id: 178, kanji: "有", kanjiMeaning: "ມີ", reading: "ユウ", word: "有名（な）", wordReading: "ゆうめい（な）", lao: "ມີຊື່ສຽງ", thai: "มีชื่อเสียง" },
+    { id: 179, kanji: "多", kanjiMeaning: "ຫຼາຍ", reading: "おお（い）", word: "多い", wordReading: "おおい", lao: "ຫຼາຍ", thai: "มาก" },
+    { id: 180, kanji: "少", kanjiMeaning: "ໜ້ອຍ", reading: "すく（ない）", word: "少ない", wordReading: "すくない", lao: "ໜ້ອຍ", thai: "น้อย" },
+{ id: 181, kanji: "遠", kanjiMeaning: "ໄກ", reading: "とお（い）", word: "遠い", wordReading: "とおい", lao: "ໄກ", thai: "ไกล" },
+    { id: 182, kanji: "社", kanjiMeaning: "ບໍລິສັດ/ສານເຈົ້າ", reading: "シャ／ジャ", word: "神社", wordReading: "じんじゃ", lao: "ສານເຈົ້າ", thai: "ศาลเจ้า" },
+    { id: 183, kanji: "行", kanjiMeaning: "ໄປ/ທະນາຄານ", reading: "コウ", word: "銀行", wordReading: "ぎんこう", lao: "ທະນາຄານ", thai: "ธนาคาร" },
+    { id: 184, kanji: "道", kanjiMeaning: "ທາງ", reading: "みち", word: "道", wordReading: "みち", lao: "ທາງ/ຖະໜົນ", thai: "ถนน/ทาง" },
+    { id: 185, kanji: "公", kanjiMeaning: "ສາທາລະນະ", reading: "コウ", word: "公園", wordReading: "こうえん", lao: "ສວນສາທາລະນະ", thai: "สวนสาธารณะ" },
+    { id: 186, kanji: "園", kanjiMeaning: "ສວນ", reading: "エン", word: "公園", wordReading: "こうえん", lao: "ສວນສາທາລະນະ", thai: "สวนสาธารณะ" },
+    { id: 187, kanji: "銀", kanjiMeaning: "ເງິນ", reading: "ギン", word: "銀行", wordReading: "ぎんこう", lao: "ທະນາຄານ", thai: "ธนาคาร" },
+    { id: 188, kanji: "寺", kanjiMeaning: "ວັດ", reading: "てら", word: "お寺", wordReading: "おてら", lao: "ວັດ", thai: "วัด" },
+    { id: 189, kanji: "神", kanjiMeaning: "ພະເຈົ້າ", reading: "ジン", word: "神社", wordReading: "じんじゃ", lao: "ສານເຈົ້າ", thai: "ศาลเจ้า" },
+    { id: 190, kanji: "右", kanjiMeaning: "ຂວາ", reading: "みぎ", word: "右", wordReading: "みぎ", lao: "ຂວາ", thai: "ขวา" },
+    { id: 191, kanji: "左", kanjiMeaning: "ຊ້າຍ", reading: "ひだり", word: "左", wordReading: "ひだり", lao: "ຊ້າຍ", thai: "ซ้าย" },
+    { id: 192, kanji: "近", kanjiMeaning: "ໃກ້", reading: "ちか（い）", word: "近く", wordReading: "ちかく", lao: "ໃກ້", thai: "ใกล้" },
+    { id: 193, kanji: "車", kanjiMeaning: "ລົດ", reading: "くるま", word: "車", wordReading: "くるま", lao: "ລົດ", thai: "รถ" },
+    { id: 194, kanji: "送", kanjiMeaning: "ສົ່ງ", reading: "おく（る）", word: "送る", wordReading: "おくる", lao: "ສົ່ງ", thai: "ส่ง" },
+    { id: 195, kanji: "時", kanjiMeaning: "ເວລາ", reading: "ジ", word: "時間", wordReading: "じかん", lao: "ເວລາ", thai: "เวลา" },
+    { id: 196, kanji: "車", kanjiMeaning: "ລົດ", reading: "シャ", word: "電車", wordReading: "でんしゃ", lao: "ລົດໄຟ", thai: "รถไฟ" },
+    { id: 197, kanji: "間", kanjiMeaning: "ລະຫວ່າງ", reading: "カン", word: "時間", wordReading: "じかん", lao: "ເວລາ", thai: "เวลา" },
+    { id: 198, kanji: "場", kanjiMeaning: "ສະຖານທີ່", reading: "ば", word: "場所", wordReading: "ばしょ", lao: "ສະຖານທີ່", thai: "สถานที่" },
+    { id: 199, kanji: "所", kanjiMeaning: "ສະຖານທີ່", reading: "ショ", word: "場所", wordReading: "ばしょ", lao: "ສະຖານທີ່", thai: "สถานที่" },
+    { id: 200, kanji: "駅", kanjiMeaning: "ສະຖານີ", reading: "えき", word: "駅", wordReading: "えき", lao: "ສະຖານີ", thai: "สถานี" },
+{ id: 201, kanji: "受", kanjiMeaning: "ຮັບ", reading: "う（ける）", word: "受付", wordReading: "うけつけ", lao: "ບ່ອນຕິດຕໍ່/ປະຊາສຳພັນ", thai: "จุดติดต่อ/ประชาสัมพันธ์" },
+    { id: 202, kanji: "付", kanjiMeaning: "ຕິດ", reading: "つ（ける）", word: "受付", wordReading: "うけつけ", lao: "ບ່ອນຕິດຕໍ່/ປະຊາສຳພັນ", thai: "จุดติดต่อ/ประชาสัมพันธ์" },
+    { id: 203, kanji: "門", kanjiMeaning: "ປະຕູ", reading: "モン", word: "門", wordReading: "もん", lao: "ປະຕູ", thai: "ประตู" },
+    { id: 204, kanji: "電", kanjiMeaning: "ໄຟຟ້າ", reading: "デン", word: "電車", wordReading: "でんしゃ", lao: "ລົດໄຟ", thai: "รถไฟ" },
+    { id: 205, kanji: "待", kanjiMeaning: "ລໍຖ້າ", reading: "ま（つ）", word: "待つ", wordReading: "まつ", lao: "ລໍຖ້າ", thai: "รอ" },
+    { id: 206, kanji: "止", kanjiMeaning: "ຢຸດ", reading: "と（まる）", word: "止まる", wordReading: "とまる", lao: "ຢຸດ", thai: "หยุด" },
+    { id: 207, kanji: "着", kanjiMeaning: "ຮອດ/ໃສ່", reading: "つ（く）", word: "着く", wordReading: "つく", lao: "ຮອດ", thai: "ถึง" },
+    { id: 208, kanji: "急", kanjiMeaning: "ຮີບຟ້າວ", reading: "いそ（ぐ）", word: "急ぐ", wordReading: "いそぐ", lao: "ຮີບຟ້າວ", thai: "รีบ" },
+    { id: 209, kanji: "食", kanjiMeaning: "ກິນ", reading: "ショク", word: "食事", wordReading: "しょくじ", lao: "ຮັບປະທານອາຫານ", thai: "รับประทานอาหาร" },
+    { id: 210, kanji: "金", kanjiMeaning: "ເງິນ/ຄຳ", reading: "かね", word: "お金", wordReading: "おかね", lao: "ເງິນ", thai: "เงิน" },
+    { id: 211, kanji: "事", kanjiMeaning: "ວຽກ/ເລື່ອງ", reading: "ジ", word: "食事", wordReading: "しょくじ", lao: "ຮັບປະທານອາຫານ", thai: "รับประทานอาหาร" },
+    { id: 212, kanji: "楽", kanjiMeaning: "ມ່ວນຊື່ນ", reading: "たの（しい）", word: "楽しい", wordReading: "たのしい", lao: "ມ່ວນຊື່ນ", thai: "สนุก" },
+    { id: 213, kanji: "店", kanjiMeaning: "ຮ້ານ", reading: "テン", word: "～店", wordReading: "～てん", lao: "ຮ້ານ～", thai: "ร้าน～" },
+    { id: 214, kanji: "園", kanjiMeaning: "ສວນ", reading: "エン", word: "動物園", wordReading: "どうぶつえん", lao: "ສວນສັດ", thai: "สวนสัตว์" },
+    { id: 215, kanji: "博", kanjiMeaning: "ຄວາມຮູ້ກວ້າງ/ງານວາງສະແດງ", reading: "ハク", word: "博物館", wordReading: "はくぶつかん", lao: "ຫໍພິພິທະພັນ", thai: "พิพิธภัณฑ์" },
+    { id: 216, kanji: "物", kanjiMeaning: "ສິ່ງຂອງ", reading: "ブツ", word: "博物館", wordReading: "はくぶつかん", lao: "ຫໍພິພິທະພັນ", thai: "พิพิธภัณฑ์" },
+    { id: 217, kanji: "物", kanjiMeaning: "ສິ່ງຂອງ", reading: "ブツ", word: "動物園", wordReading: "どうぶつえん", lao: "ສວນສັດ", thai: "สวนสัตว์" },
+    { id: 218, kanji: "館", kanjiMeaning: "ອາຄານ/ຫໍ", reading: "カン", word: "博物館", wordReading: "はくぶつかん", lao: "ຫໍພິພິທະພັນ", thai: "พิพิธภัณฑ์" },
+    { id: 219, kanji: "動", kanjiMeaning: "ເຄື່ອນໄຫວ", reading: "ドウ", word: "動物園", wordReading: "どうぶつえん", lao: "ສວນສັດ", thai: "สวนสัตว์" },
+    { id: 220, kanji: "試", kanjiMeaning: "ທົດລອງ", reading: "シ", word: "試合", wordReading: "しあい", lao: "ການແຂ່ງຂັນ", thai: "การแข่งขัน" },
+    { id: 221, kanji: "合", kanjiMeaning: "ລວມ/ເຂົ້າກັນ", reading: "あい", word: "試合", wordReading: "しあい", lao: "ການແຂ່ງຂັນ", thai: "การแข่งขัน" },
+    { id: 222, kanji: "難", kanjiMeaning: "ຍາກ", reading: "むずか（しい）", word: "難しい", wordReading: "むずかしい", lao: "ຍາກ", thai: "ยาก" },
+    { id: 223, kanji: "登", kanjiMeaning: "ປີນ/ຂຶ້ນ", reading: "のぼ（る）", word: "登る", wordReading: "のぼる", lao: "ປີນ/ຂຶ້ນ", thai: "ปีน/ขึ้น" },
+    { id: 224, kanji: "大", kanjiMeaning: "ໃຫຍ່", reading: "ダイ", word: "大学", wordReading: "だいがく", lao: "ມະຫາວິທະຍາໄລ", thai: "มหาวิทยาลัย" },
+    { id: 225, kanji: "高", kanjiMeaning: "ສູງ", reading: "コウ", word: "高校", wordReading: "こうこう", lao: "ໂຮງຮຽນມັດທະຍົມປາຍ", thai: "โรงเรียนมัธยมปลาย" },
+    { id: 226, kanji: "学", kanjiMeaning: "ຮຽນ", reading: "ガク", word: "大学", wordReading: "だいがく", lao: "ມະຫາວິທະຍາໄລ", thai: "มหาวิทยาลัย" },
+    { id: 227, kanji: "校", kanjiMeaning: "ໂຮງຮຽນ", reading: "コウ", word: "高校", wordReading: "こうこう", lao: "ໂຮງຮຽນມັດທະຍົມປາຍ", thai: "โรงเรียนมัธยมปลาย" },
+    { id: 228, kanji: "習", kanjiMeaning: "ຮຽນ/ຝຶກ", reading: "シュウ", word: "練習", wordReading: "れんしゅう", lao: "ຝຶກຊ້ອມ", thai: "ฝึกซ้อม" },
+    { id: 229, kanji: "明", kanjiMeaning: "ແຈ້ງ/ສະຫວ່າງ", reading: "メイ", word: "説明する", wordReading: "せつめいする", lao: "ອະທິບາຍ", thai: "อธิบาย" },
+    { id: 230, kanji: "練", kanjiMeaning: "ຝຶກ", reading: "レン", word: "練習", wordReading: "れんしゅう", lao: "ຝຶກຊ້ອມ", thai: "ฝึกซ้อม" },
+    { id: 231, kanji: "漢", kanjiMeaning: "ຈີນ", reading: "カン", word: "漢字", wordReading: "かんじ", lao: "ຄັນຈິ", thai: "คันจิ" },
+    { id: 232, kanji: "字", kanjiMeaning: "ຕົວອັກສອນ", reading: "ジ", word: "漢字", wordReading: "かんじ", lao: "ຄັນຈິ", thai: "คันจิ" },
+    { id: 233, kanji: "無", kanjiMeaning: "ບໍ່ມີ", reading: "ム", word: "無料", wordReading: "むりょう", lao: "ຟຣີ/ບໍ່ເສຍຄ່າ", thai: "ฟรี/ไม่เสียค่าใช้จ่าย" },
+    { id: 234, kanji: "料", kanjiMeaning: "ຄ່າທຳນຽມ/ວັດສະດຸ", reading: "リョウ", word: "無料", wordReading: "むりょう", lao: "ຟຣີ/ບໍ່ເສຍຄ່າ", thai: "ฟรี/ไม่เสียค่าใช้จ่าย" },
+    { id: 235, kanji: "言", kanjiMeaning: "ເວົ້າ", reading: "い（う）", word: "言う", wordReading: "いう", lao: "ເວົ້າ", thai: "พูด" },
+    { id: 236, kanji: "書", kanjiMeaning: "ຂຽນ", reading: "か（く）", word: "書く", wordReading: "かく", lao: "ຂຽນ", thai: "เขียน" },
+    { id: 237, kanji: "貸", kanjiMeaning: "ໃຫ້ຢືມ", reading: "か（す）", word: "貸す", wordReading: "かす", lao: "ໃຫ້ຢືມ", thai: "ให้ยืม" },
+    { id: 238, kanji: "教", kanjiMeaning: "ສອນ", reading: "おし（える）", word: "教える", wordReading: "おしえる", lao: "ສອນ", thai: "สอน" },
+    { id: 239, kanji: "説", kanjiMeaning: "ອະທິບາຍ", reading: "セツ", word: "説明する", wordReading: "せつめいする", lao: "ອະທິບາຍ", thai: "อธิบาย" },
+    { id: 240, kanji: "前", kanjiMeaning: "ກ່ອນ/ໜ້າ", reading: "ゼン", word: "午前", wordReading: "ごぜん", lao: "ຕອນເຊົ້າ", thai: "ตอนเช้า (AM)" },
+    { id: 241, kanji: "後", kanjiMeaning: "ຫຼັງ", reading: "ゴ", word: "午後", wordReading: "ごご", lao: "ຕອນບ່າຍ", thai: "ตอนบ่าย (PM)" },
+    { id: 242, kanji: "生", kanjiMeaning: "ເກີດ/ຊີວິດ", reading: "セイ", word: "先生", wordReading: "せんせい", lao: "ອາຈານ/ຄູ", thai: "อาจารย์/ครู" },
+    { id: 243, kanji: "先", kanjiMeaning: "ກ່ອນ", reading: "セン", word: "先生", wordReading: "せんせい", lao: "ອາຈານ/ຄູ", thai: "อาจารย์/ครู" },
+    { id: 244, kanji: "書", kanjiMeaning: "ຂຽນ/ປຶ້ມ", reading: "ショ", word: "教科書", wordReading: "きょうかしょ", lao: "ປຶ້ມແບບຮຽນ", thai: "หนังสือเรียน" },
+    { id: 245, kanji: "教", kanjiMeaning: "ສອນ", reading: "キョウ", word: "教科書", wordReading: "きょうかしょ", lao: "ປຶ້ມແບບຮຽນ", thai: "หนังสือเรียน" },
+    { id: 246, kanji: "教", kanjiMeaning: "ສອນ", reading: "キョウ", word: "教室", wordReading: "きょうしつ", lao: "ຫ້ອງຮຽນ", thai: "ห้องเรียน" },
+    { id: 247, kanji: "午", kanjiMeaning: "ທ່ຽງວັນ", reading: "ゴ", word: "午前", wordReading: "ごぜん", lao: "ຕອນເຊົ້າ", thai: "ตอนเช้า (AM)" },
+    { id: 248, kanji: "午", kanjiMeaning: "ທ່ຽງວັນ", reading: "ゴ", word: "午後", wordReading: "ごご", lao: "ຕອນບ່າຍ", thai: "ตอนบ่าย (PM)" },
+    { id: 249, kanji: "科", kanjiMeaning: "ວິຊາ", reading: "カ", word: "教科書", wordReading: "きょうかしょ", lao: "ປຶ້ມແບບຮຽນ", thai: "หนังสือเรียน" },
+    { id: 250, kanji: "室", kanjiMeaning: "ຫ້ອງ", reading: "シツ", word: "教室", wordReading: "きょうしつ", lao: "ຫ້ອງຮຽນ", thai: "ห้องเรียน" },
+{ id: 251, kanji: "全", kanjiMeaning: "ທັງໝົດ", reading: "ゼン", word: "全部", wordReading: "ぜんぶ", lao: "ທັງໝົດ", thai: "ทั้งหมด" },
+    { id: 252, kanji: "部", kanjiMeaning: "ສ່ວນ", reading: "ブ", word: "全部", wordReading: "ぜんぶ", lao: "ທັງໝົດ", thai: "ทั้งหมด" },
+    { id: 253, kanji: "回", kanjiMeaning: "ຄັ້ງ", reading: "カイ", word: "～回", wordReading: "～かい", lao: "～ຄັ້ງ", thai: "～ครั้ง" },
+    { id: 254, kanji: "参", kanjiMeaning: "ເຂົ້າຮ່ວມ", reading: "サン", word: "参加する", wordReading: "さんかする", lao: "ເຂົ້າຮ່ວມ", thai: "เข้าร่วม" },
+    { id: 255, kanji: "加", kanjiMeaning: "ເພີ່ມ", reading: "カ", word: "参加する", wordReading: "さんかする", lao: "ເຂົ້າຮ່ວມ", thai: "เข้าร่วม" },
+    { id: 256, kanji: "用", kanjiMeaning: "ໃຊ້/ກຽມ", reading: "ヨウ", word: "用意する", wordReading: "よういする", lao: "ກຽມພ້ອມ", thai: "จัดเตรียม" },
+    { id: 257, kanji: "意", kanjiMeaning: "ຄວາມໝາຍ/ໃຈ", reading: "イ", word: "用意する", wordReading: "よういする", lao: "ກຽມພ້ອມ", thai: "จัดเตรียม" },
+    { id: 258, kanji: "飲", kanjiMeaning: "ດື່ມ", reading: "の（む）", word: "飲み物", wordReading: "のみもの", lao: "ເຄື່ອງດື່ມ", thai: "เครื่องดื่ม" },
+    { id: 259, kanji: "肉", kanjiMeaning: "ຊີ້ນ", reading: "ニク", word: "牛肉", wordReading: "ぎゅうにく", lao: "ຊີ້ນງົວ", thai: "เนื้อวัว" },
+    { id: 260, kanji: "肉", kanjiMeaning: "ຊີ້ນ", reading: "ニク", word: "豚肉", wordReading: "ぶたにく", lao: "ຊີ້ນໝູ", thai: "เนื้อหมู" },
+    { id: 261, kanji: "行", kanjiMeaning: "ໄປ", reading: "い（く）", word: "持って行く", wordReading: "もっていく", lao: "ເອົາໄປ", thai: "นำไป/เอาไป" },
+    { id: 262, kanji: "物", kanjiMeaning: "ສິ່ງຂອງ", reading: "もの", word: "飲み物", wordReading: "のみもの", lao: "ເຄື່ອງດື່ມ", thai: "เครื่องดื่ม" },
+    { id: 263, kanji: "料", kanjiMeaning: "ວັດສະດຸ", reading: "リョウ", word: "材料", wordReading: "ざいりょう", lao: "ສ່ວນປະສົມ/ວັດຖຸດິບ", thai: "ส่วนผสม/วัตถุดิบ" },
+    { id: 264, kanji: "茶", kanjiMeaning: "ຊາ", reading: "チャ", word: "お茶", wordReading: "おちゃ", lao: "ນ້ຳຊາ", thai: "น้ำชา" },
+    { id: 265, kanji: "酒", kanjiMeaning: "ເຫຼົ້າ", reading: "さけ", word: "お酒", wordReading: "おさけ", lao: "ເຫຼົ້າ", thai: "เหล้า" },
+    { id: 266, kanji: "材", kanjiMeaning: "ວັດສະດຸ", reading: "ザイ", word: "材料", wordReading: "ざいりょう", lao: "ສ່ວນປະສົມ/ວັດຖຸດິບ", thai: "ส่วนผสม/วัตถุดิบ" },
+    { id: 267, kanji: "野", kanjiMeaning: "ທົ່ງ", reading: "ヤ", word: "野菜", wordReading: "やさい", lao: "ຜັກ", thai: "ผัก" },
+    { id: 268, kanji: "菜", kanjiMeaning: "ຜັກ", reading: "サイ", word: "野菜", wordReading: "やさい", lao: "ຜັກ", thai: "ผัก" },
+    { id: 269, kanji: "牛", kanjiMeaning: "ງົວ", reading: "ギュウ", word: "牛肉", wordReading: "ぎゅうにく", lao: "ຊີ້ນງົວ", thai: "เนื้อวัว" },
+    { id: 270, kanji: "豚", kanjiMeaning: "ໝູ", reading: "ぶた", word: "豚肉", wordReading: "ぶたにく", lao: "ຊີ້ນໝູ", thai: "เนื้อหมู" },
+    { id: 271, kanji: "皿", kanjiMeaning: "ຈານ", reading: "さら", word: "皿", wordReading: "さら", lao: "ຈານ", thai: "จาน" },
+    { id: 272, kanji: "売", kanjiMeaning: "ຂາຍ", reading: "う（る）", word: "売る", wordReading: "うる", lao: "ຂາຍ", thai: "ขาย" },
+    { id: 273, kanji: "持", kanjiMeaning: "ຖື", reading: "も（つ）", word: "持って行く", wordReading: "もっていく", lao: "ເອົາໄປ", thai: "นำไป/เอาไป" },
+    { id: 274, kanji: "方", kanjiMeaning: "ວິທີ", reading: "ホウ", word: "調理方法", wordReading: "ちょうりほうほう", lao: "ວິທີປຸງແຕ່ງ", thai: "วิธีปรุงอาหาร" },
+    { id: 275, kanji: "少", kanjiMeaning: "ໜ້ອຍ", reading: "すこ（し）", word: "少し", wordReading: "すこし", lao: "ໜ້ອຍໜຶ່ງ", thai: "นิดหน่อย" },
+    { id: 276, kanji: "料", kanjiMeaning: "ວັດສະດຸ", reading: "リョウ", word: "料理", wordReading: "りょうり", lao: "ອາຫານ", thai: "อาหาร" },
+    { id: 277, kanji: "卵", kanjiMeaning: "ໄຂ່", reading: "たまご", word: "卵", wordReading: "たまご", lao: "ໄຂ່", thai: "ไข่" },
+    { id: 278, kanji: "理", kanjiMeaning: "ເຫດຜົນ", reading: "リ", word: "料理", wordReading: "りょうり", lao: "ອາຫານ", thai: "อาหาร" },
+    { id: 279, kanji: "理", kanjiMeaning: "ເຫດຜົນ", reading: "リ", word: "調理方法", wordReading: "ちょうりほうほう", lao: "ວິທີປຸງແຕ່ງ", thai: "วิธีปรุงอาหาร" },
+    { id: 280, kanji: "湯", kanjiMeaning: "ນ້ຳຮ້ອນ", reading: "ゆ", word: "お湯", wordReading: "おゆ", lao: "ນ້ຳຮ້ອນ", thai: "น้ำร้อน" },
+    { id: 281, kanji: "調", kanjiMeaning: "ກວດກາ/ປັບປຸງ", reading: "チョウ", word: "調理方法", wordReading: "ちょうりほうほう", lao: "ວິທີປຸງແຕ່ງ", thai: "วิธีปรุงอาหาร" },
+    { id: 282, kanji: "法", kanjiMeaning: "ກົດໝາຍ/ວິທີ", reading: "ホウ", word: "調理方法", wordReading: "ちょうりほうほう", lao: "ວິທີປຸງແຕ່ງ", thai: "วิธีปรุงอาหาร" },
+    { id: 283, kanji: "味", kanjiMeaning: "ລົດຊາດ", reading: "あじ", word: "味", wordReading: "あじ", lao: "ລົດຊາດ", thai: "รสชาติ" },
+    { id: 284, kanji: "甘", kanjiMeaning: "ຫວານ", reading: "あま（い）", word: "甘い", wordReading: "あまい", lao: "ຫວານ", thai: "หวาน" },
+    { id: 285, kanji: "辛", kanjiMeaning: "ເຜັດ", reading: "から（い）", word: "辛い", wordReading: "からい", lao: "ເຜັດ", thai: "เผ็ด" },
+    { id: 286, kanji: "苦", kanjiMeaning: "ຂົມ", reading: "にが（い）", word: "苦手（な）", wordReading: "にがて（な）", lao: "ບໍ່ເກັ່ງ/ບໍ່ມັກ", thai: "ไม่ถนัด/ไม่ชอบ" },
+    { id: 287, kanji: "手", kanjiMeaning: "ມື", reading: "て", word: "苦手（な）", wordReading: "にがて（な）", lao: "ບໍ່ເກັ່ງ/ບໍ່ມັກ", thai: "ไม่ถนัด/ไม่ชอบ" },
+    { id: 288, kanji: "気", kanjiMeaning: "ພະລັງງານ/ຄວາມຮູ້ສຶກ", reading: "キ", word: "電気", wordReading: "でんき", lao: "ໄຟຟ້າ", thai: "ไฟฟ้า" },
+    { id: 289, kanji: "音", kanjiMeaning: "ສຽງ", reading: "おと", word: "音", wordReading: "おと", lao: "ສຽງ", thai: "เสียง" },
+    { id: 290, kanji: "電", kanjiMeaning: "ໄຟຟ້າ", reading: "デン", word: "電気", wordReading: "でんき", lao: "ໄຟຟ້າ", thai: "ไฟฟ้า" },
+    { id: 291, kanji: "動", kanjiMeaning: "ເຄື່ອນໄຫວ", reading: "うご（く）", word: "動く", wordReading: "うごく", lao: "ເຄື່ອນໄຫວ", thai: "เคลื่อนไหว/ขยับ" },
+    { id: 292, kanji: "合", kanjiMeaning: "ລວມ/ເຂົ້າກັນ", reading: "ゴウ", word: "都合", wordReading: "つごう", lao: "ຄວາມສະດວກ(ເວລາ)", thai: "ความสะดวก(เวลา)" },
+    { id: 293, kanji: "字", kanjiMeaning: "ຕົວອັກສອນ", reading: "ジ", word: "数字", wordReading: "すうじ", lao: "ຕົວເລກ", thai: "ตัวเลข" },
+    { id: 294, kanji: "機", kanjiMeaning: "ເຄື່ອງຈັກ", reading: "キ", word: "コピー機", wordReading: "こぴーき", lao: "ເຄື່ອງກັອບປີ້", thai: "เครื่องถ่ายเอกสาร" },
+    { id: 295, kanji: "数", kanjiMeaning: "ຕົວເລກ/ນັບ", reading: "スウ", word: "数字", wordReading: "すうじ", lao: "ຕົວເລກ", thai: "ตัวเลข" },
+    { id: 296, kanji: "机", kanjiMeaning: "ໂຕະ", reading: "つくえ", word: "机", wordReading: "つくえ", lao: "ໂຕະ", thai: "โต๊ะ" },
+    { id: 297, kanji: "都", kanjiMeaning: "ເມືອງຫຼວງ", reading: "ツ", word: "都合", wordReading: "つごう", lao: "ຄວາມສະດວກ(ເວລາ)", thai: "ความสะดวก(เวลา)" },
+    { id: 298, kanji: "悪", kanjiMeaning: "ບໍ່ດີ", reading: "わる（い）", word: "悪い", wordReading: "わるい", lao: "ບໍ່ດີ", thai: "เลว/ไม่ดี" },
+    { id: 299, kanji: "使", kanjiMeaning: "ໃຊ້", reading: "つか（う）", word: "使う", wordReading: "つかう", lao: "ໃຊ້", thai: "ใช้" },
+    { id: 300, kanji: "終", kanjiMeaning: "ຈົບ/ແລ້ວ", reading: "お（わる）", word: "終わる", wordReading: "おわる", lao: "ຈົບ/ແລ້ວ", thai: "เสร็จ/จบ" },
+{ id: 301, kanji: "願", kanjiMeaning: "ຂໍຮ້ອງ", reading: "ねが（う）", word: "お願いします", wordReading: "おねがいします", lao: "ກະລຸນາ/ຂໍຮ້ອງ", thai: "กรุณา/ขอร้อง" },
+    { id: 302, kanji: "名", kanjiMeaning: "ຊື່", reading: "メイ", word: "氏名", wordReading: "しめい", lao: "ຊື່ແລະນາມສະກຸນ", thai: "ชื่อและนามสกุล" },
+    { id: 303, kanji: "先", kanjiMeaning: "ກ່ອນ/ຈຸດໝາຍ", reading: "さき", word: "連絡先", wordReading: "れんらくさき", lao: "ສະຖານທີ່ຕິດຕໍ່/ເບີຕິດຕໍ່", thai: "สถานที่ติดต่อ/เบอร์ติดต่อ" },
+    { id: 304, kanji: "事", kanjiMeaning: "ວຽກ/ເລື່ອງ", reading: "ジ", word: "用事", wordReading: "ようじ", lao: "ທຸລະ (ວຽກທີ່ຕ້ອງເຮັດ)", thai: "ธุระ" },
+    { id: 305, kanji: "用", kanjiMeaning: "ໃຊ້/ທຸລະ", reading: "ヨウ", word: "用事", wordReading: "ようじ", lao: "ທຸລະ (ວຽກທີ່ຕ້ອງເຮັດ)", thai: "ธุระ" },
+    { id: 306, kanji: "理", kanjiMeaning: "ເຫດຜົນ", reading: "リ", word: "理由", wordReading: "りゆう", lao: "ເຫດຜົນ", thai: "เหตุผล" },
+    { id: 307, kanji: "氏", kanjiMeaning: "ນາມສະກຸນ", reading: "シ", word: "氏名", wordReading: "しめい", lao: "ຊື່ແລະນາມສະກຸນ", thai: "ชื่อและนามสกุล" },
+    { id: 308, kanji: "由", kanjiMeaning: "ເຫດຜົນ", reading: "ユウ", word: "理由", wordReading: "りゆう", lao: "ເຫດຜົນ", thai: "เหตุผล" },
+    { id: 309, kanji: "連", kanjiMeaning: "ຕິດຕໍ່/ເຊື່ອມຕໍ່", reading: "レン", word: "連絡先", wordReading: "れんらくさき", lao: "ສະຖານທີ່ຕິດຕໍ່/ເບີຕິດຕໍ່", thai: "สถานที่ติดต่อ/เบอร์ติดต่อ" },
+    { id: 310, kanji: "絡", kanjiMeaning: "ຕິດຕໍ່", reading: "ラク", word: "連絡先", wordReading: "れんらくさき", lao: "ສະຖານທີ່ຕິດຕໍ່/ເບີຕິດຕໍ່", thai: "สถานที่ติดต่อ/เบอร์ติดต่อ" },
+    { id: 311, kanji: "別", kanjiMeaning: "ແຍກ/ອື່ນໆ", reading: "ベツ", word: "別に", wordReading: "べつに", lao: "ເປັນພິເສດ/ບໍ່ມີຫຍັງເປັນພິເສດ", thai: "(ไม่) เป็นพิเศษ" },
+    { id: 312, kanji: "早", kanjiMeaning: "ໄວ/ເຊົ້າ", reading: "はや（い）", word: "早く", wordReading: "はやく", lao: "ໄວ/ແຕ່ເຊົ້າ", thai: "เร็ว/แต่เช้า" },
+    { id: 313, kanji: "吸", kanjiMeaning: "ດູດ/ສູບ", reading: "す（う）", word: "吸う", wordReading: "すう", lao: "ສູບ/ດູດ", thai: "สูบ/ดูด" },
+    { id: 314, kanji: "取", kanjiMeaning: "ເອົາ", reading: "と（る）", word: "取る", wordReading: "とる", lao: "ເອົາ/ຈັບເອົາ", thai: "หยิบ/เอา" },
+    { id: 315, kanji: "帰", kanjiMeaning: "ກັບຄືນ", reading: "かえ（る）", word: "帰る", wordReading: "かえる", lao: "ກັບຄືນ", thai: "กลับ" },
+    { id: 316, kanji: "伝", kanjiMeaning: "ບອກຕໍ່/ຖ່າຍທອດ", reading: "つた（える）", word: "伝える", wordReading: "つたえる", lao: "ບອກຕໍ່/ແຈ້ງໃຫ້ຊາບ", thai: "บอกต่อ/แจ้งให้ทราบ" },
+    { id: 317, kanji: "入", kanjiMeaning: "ເຂົ້າ", reading: "ニュウ", word: "記入する", wordReading: "きにゅうする", lao: "ຂຽນລົງໄປ/ຕື່ມຂໍ້ມູນ", thai: "กรอกข้อมูล" },
+    { id: 318, kanji: "気", kanjiMeaning: "ພະລັງງານ/ຄວາມຮູ້ສຶກ", reading: "キ", word: "病気", wordReading: "びょうき", lao: "ພະຍາດ/ບໍ່ສະບາຍ", thai: "โรค/ป่วย" },
+    { id: 319, kanji: "所", kanjiMeaning: "ສະຖານທີ່", reading: "ショ", word: "住所", wordReading: "じゅうしょ", lao: "ທີ່ຢູ່", thai: "ที่อยู่" },
+    { id: 320, kanji: "熱", kanjiMeaning: "ຄວາມຮ້ອນ/ໄຂ້", reading: "ネツ", word: "熱", wordReading: "ねつ", lao: "ໄຂ້/ຄວາມຮ້ອນ", thai: "ไข้/ความร้อน" },
+    { id: 321, kanji: "薬", kanjiMeaning: "ຢາ", reading: "くすり", word: "薬", wordReading: "くすり", lao: "ຢາ", thai: "ยา" },
+    { id: 322, kanji: "病", kanjiMeaning: "ພະຍາດ", reading: "ビョウ", word: "病気", wordReading: "びょうき", lao: "ພະຍາດ/ບໍ່ສະບາຍ", thai: "โรค/ป่วย" },
+    { id: 323, kanji: "病", kanjiMeaning: "ພະຍາດ", reading: "ビョウ", word: "病院", wordReading: "びょういん", lao: "ໂຮງໝໍ", thai: "โรงพยาบาล" },
+    { id: 324, kanji: "院", kanjiMeaning: "ສະຖາບັນ/ອາຄານ", reading: "イン", word: "病院", wordReading: "びょういん", lao: "ໂຮງໝໍ", thai: "โรงพยาบาล" },
+    { id: 325, kanji: "医", kanjiMeaning: "ແພດສາດ", reading: "イ", word: "医者", wordReading: "いしゃ", lao: "ທ່ານໝໍ", thai: "หมอ/แพทย์" },
+    { id: 326, kanji: "者", kanjiMeaning: "ຄົນ", reading: "シャ", word: "医者", wordReading: "いしゃ", lao: "ທ່ານໝໍ", thai: "หมอ/แพทย์" },
+    { id: 327, kanji: "住", kanjiMeaning: "ອາໄສຢູ່", reading: "ジュウ", word: "住所", wordReading: "じゅうしょ", lao: "ທີ່ຢູ່", thai: "ที่อยู่" },
+    { id: 328, kanji: "才", kanjiMeaning: "ອາຍຸ/ພອນສະຫວັນ", reading: "サイ", word: "～才", wordReading: "～さい", lao: "ອາຍຸ～ປີ", thai: "อายุ～ปี" },
+    { id: 329, kanji: "痛", kanjiMeaning: "ເຈັບ", reading: "いた（い）", word: "痛い", wordReading: "いたい", lao: "ເຈັບ/ປວດ", thai: "เจ็บ/ปวด" },
+    { id: 330, kanji: "眠", kanjiMeaning: "ງ້ວງນອນ", reading: "ねむ（い）", word: "眠い", wordReading: "ねむい", lao: "ງ້ວງນອນ", thai: "ง่วงนอน" },
+    { id: 331, kanji: "寝", kanjiMeaning: "ນອນ", reading: "ね（る）", word: "寝る", wordReading: "ねる", lao: "ນອນ", thai: "นอน" },
+    { id: 332, kanji: "記", kanjiMeaning: "ບັນທຶກ", reading: "キ", word: "記入する", wordReading: "きにゅうする", lao: "ຂຽນລົງໄປ/ຕື່ມຂໍ້ມູນ", thai: "กรอกข้อมูล" },
+    { id: 333, kanji: "口", kanjiMeaning: "ປາກ", reading: "くち", word: "口", wordReading: "くち", lao: "ປາກ", thai: "ปาก" },
+    { id: 334, kanji: "動", kanjiMeaning: "ເຄື່ອນໄຫວ", reading: "ドウ", word: "運動する", wordReading: "うんどうする", lao: "ອອກກຳລັງກາຍ", thai: "ออกกำลังกาย" },
+    { id: 335, kanji: "手", kanjiMeaning: "ມື", reading: "て", word: "手", wordReading: "て", lao: "ມື", thai: "มือ" },
+    { id: 336, kanji: "体", kanjiMeaning: "ຮ່າງກາຍ", reading: "からだ", word: "体", wordReading: "からだ", lao: "ຮ່າງກາຍ", thai: "ร่างกาย" },
+    { id: 337, kanji: "顔", kanjiMeaning: "ໜ້າ", reading: "かお", word: "顔", wordReading: "かお", lao: "ໃບໜ້າ", thai: "ใบหน้า" },
+    { id: 338, kanji: "目", kanjiMeaning: "ຕາ", reading: "め", word: "目", wordReading: "め", lao: "ຕາ", thai: "ตา" },
+    { id: 339, kanji: "耳", kanjiMeaning: "ຫູ", reading: "みみ", word: "耳", wordReading: "みみ", lao: "ຫູ", thai: "หู" },
+    { id: 340, kanji: "頭", kanjiMeaning: "ຫົວ", reading: "あたま", word: "頭", wordReading: "あたま", lao: "ຫົວ", thai: "หัว/ศีรษะ" },
+    { id: 341, kanji: "足", kanjiMeaning: "ຂາ/ຕີນ", reading: "あし", word: "足", wordReading: "あし", lao: "ຂາ/ຕີນ", thai: "ขา/เท้า" },
+    { id: 342, kanji: "起", kanjiMeaning: "ຕື່ນ", reading: "お（きる）", word: "起きる", wordReading: "おきる", lao: "ຕື່ນນອນ/ເກີດຂຶ້ນ", thai: "ตื่นนอน/เกิดขึ้น" },
+    { id: 343, kanji: "歩", kanjiMeaning: "ຍ່າງ", reading: "ある（く）", word: "歩く", wordReading: "あるく", lao: "ຍ່າງ", thai: "เดิน" },
+    { id: 344, kanji: "走", kanjiMeaning: "ແລ່ນ", reading: "はし（る）", word: "走る", wordReading: "はしる", lao: "ແລ່ນ", thai: "วิ่ง" },
+    { id: 345, kanji: "運", kanjiMeaning: "ຂົນສົ່ງ/ໂຊກ", reading: "ウン", word: "運動する", wordReading: "うんどうする", lao: "ອອກກຳລັງກາຍ", thai: "ออกกำลังกาย" },
+    { id: 346, kanji: "父", kanjiMeaning: "ພໍ່", reading: "*特別な読み方", word: "お父さん", wordReading: "おとうさん", lao: "ພໍ່", thai: "พ่อ" },
+    { id: 347, kanji: "母", kanjiMeaning: "ແມ່", reading: "*特別な読み方", word: "お母さん", wordReading: "おかあさん", lao: "ແມ່", thai: "แม่" },
+    { id: 348, kanji: "兄", kanjiMeaning: "ອ້າຍ", reading: "あに", word: "兄", wordReading: "あに", lao: "ອ້າຍ", thai: "พี่ชาย" },
+    { id: 349, kanji: "兄", kanjiMeaning: "ອ້າຍ", reading: "*特別な読み方", word: "お兄さん", wordReading: "おにいさん", lao: "ອ້າຍ", thai: "พี่ชาย" },
+    { id: 350, kanji: "姉", kanjiMeaning: "ເອື້ອຍ", reading: "あね", word: "姉", wordReading: "あね", lao: "ເອື້ອຍ", thai: "พี่สาว" },
+{ id: 351, kanji: "姉", kanjiMeaning: "ເອື້ອຍ", reading: "*特別な読み方", word: "お姉さん", wordReading: "おねえさん", lao: "ເອື້ອຍ", thai: "พี่สาว" },
+    { id: 352, kanji: "弟", kanjiMeaning: "ນ້ອງຊາຍ", reading: "おとうと", word: "弟", wordReading: "おとうと", lao: "ນ້ອງຊາຍ", thai: "น้องชาย" },
+    { id: 353, kanji: "妹", kanjiMeaning: "ນ້ອງສາວ", reading: "いもうと", word: "妹", wordReading: "いもうと", lao: "ນ້ອງສາວ", thai: "น้องสาว" },
+    { id: 354, kanji: "夫", kanjiMeaning: "ຜົວ/ສາມີ", reading: "おっと", word: "夫", wordReading: "おっと", lao: "ຜົວ/ສາມີ", thai: "สามี/ผัว" },
+    { id: 355, kanji: "妻", kanjiMeaning: "ເມຍ/ພັນລະຍາ", reading: "つま", word: "妻", wordReading: "つま", lao: "ເມຍ/ພັນລະຍາ", thai: "ภรรยา/เมีย" },
+    { id: 356, kanji: "両", kanjiMeaning: "ທັງສອງ", reading: "リョウ", word: "両親", wordReading: "りょうしん", lao: "ພໍ່ແມ່", thai: "พ่อแม่" },
+    { id: 357, kanji: "親", kanjiMeaning: "ພໍ່ແມ່/ສະນິດສະໜົມ", reading: "シン", word: "両親", wordReading: "りょうしん", lao: "ພໍ່ແມ່", thai: "พ่อแม่" },
+    { id: 358, kanji: "子", kanjiMeaning: "ເດັກນ້ອຍ/ລູກ", reading: "こ", word: "男の子", wordReading: "おとこのこ", lao: "ເດັກນ້ອຍຜູ້ຊາຍ", thai: "เด็กผู้ชาย" },
+    { id: 359, kanji: "子", kanjiMeaning: "ເດັກນ້ອຍ/ລູກ", reading: "こ", word: "女の子", wordReading: "おんなのこ", lao: "ເດັກນ້ອຍຜູ້ຍິງ", thai: "เด็กผู้หญิง" },
+    { id: 360, kanji: "日", kanjiMeaning: "ມື້/ຕາເວັນ", reading: "ひ／び", word: "誕生日", wordReading: "たんじょうび", lao: "ວັນເກີດ", thai: "วันเกิด" },
+    { id: 361, kanji: "時", kanjiMeaning: "ເວລາ", reading: "*特別な読み方", word: "時計", wordReading: "とけい", lao: "ໂມງ", thai: "นาฬิกา" },
+    { id: 362, kanji: "生", kanjiMeaning: "ເກີດ/ຊີວິດ", reading: "ジョウ", word: "誕生日", wordReading: "たんじょうび", lao: "ວັນເກີດ", thai: "วันเกิด" },
+    { id: 363, kanji: "生", kanjiMeaning: "ເກີດ/ຊີວິດ", reading: "う（まれる）", word: "生まれる", wordReading: "うまれる", lao: "ເກີດ", thai: "เกิด" },
+    { id: 364, kanji: "合", kanjiMeaning: "ລວມ/ເຂົ້າກັນ", reading: "ゴウ", word: "合格する", wordReading: "ごうかくする", lao: "ເສັງຜ່ານ", thai: "สอบผ่าน" },
+    { id: 365, kanji: "男", kanjiMeaning: "ຜູ້ຊາຍ", reading: "おとこ", word: "男の子", wordReading: "おとこのこ", lao: "ເດັກນ້ອຍຜູ້ຊາຍ", thai: "เด็กผู้ชาย" },
+    { id: 366, kanji: "女", kanjiMeaning: "ຜູ້ຍິງ", reading: "おんな", word: "女の子", wordReading: "おんなのこ", lao: "ເດັກນ້ອຍຜູ້ຍິງ", thai: "เด็กผู้หญิง" },
+    { id: 367, kanji: "祝", kanjiMeaning: "ສະຫຼອງ/ອວຍພອນ", reading: "いわ（う）", word: "お祝い", wordReading: "おいわい", lao: "ການສະຫຼອງ/ຂອງຂວັນສະຫຼອງ", thai: "การเฉลิมฉลอง/การอวยพร" },
+    { id: 368, kanji: "誕", kanjiMeaning: "ເກີດ", reading: "タン", word: "誕生日", wordReading: "たんじょうび", lao: "ວັນເກີດ", thai: "วันเกิด" },
+    { id: 369, kanji: "結", kanjiMeaning: "ຜູກ/ເຊື່ອມ", reading: "ケツ／ケッ", word: "結婚", wordReading: "けっこん", lao: "ແຕ່ງງານ", thai: "แต่งงาน" },
+    { id: 370, kanji: "婚", kanjiMeaning: "ແຕ່ງງານ", reading: "コン", word: "結婚", wordReading: "けっこん", lao: "ແຕ່ງງານ", thai: "แต่งงาน" },
+    { id: 371, kanji: "計", kanjiMeaning: "ວັດແທກ/ແຜນການ", reading: "ケイ", word: "時計", wordReading: "とけい", lao: "ໂມງ", thai: "นาฬิกา" },
+    { id: 372, kanji: "幸", kanjiMeaning: "ໂຊກດີ/ຄວາມສຸກ", reading: "しあわ（せ）", word: "幸せ（な）", wordReading: "しあわせ（な）", lao: "ມີຄວາມສຸກ", thai: "มีความสุข" },
+    { id: 373, kanji: "思", kanjiMeaning: "ຄິດ", reading: "おも（う）", word: "思う", wordReading: "おもう", lao: "ຄິດ", thai: "คิด" },
+    { id: 374, kanji: "選", kanjiMeaning: "ເລືອກ", reading: "えら（ぶ）", word: "選ぶ", wordReading: "えらぶ", lao: "ເລືອກ", thai: "เลือก" },
+    { id: 375, kanji: "格", kanjiMeaning: "ສະຖານະ/ມາດຕະຖານ", reading: "カク", word: "合格する", wordReading: "ごうかくする", lao: "ເສັງຜ່ານ", thai: "สอบผ่าน" },
+    { id: 376, kanji: "意", kanjiMeaning: "ຄວາມໝາຍ/ໃຈ", reading: "イ", word: "意味", wordReading: "いみ", lao: "ຄວາມໝາຍ", thai: "ความหมาย" },
+    { id: 377, kanji: "味", kanjiMeaning: "ລົດຊາດ", reading: "ミ", word: "意味", wordReading: "いみ", lao: "ຄວາມໝາຍ", thai: "ความหมาย" },
+    { id: 378, kanji: "山", kanjiMeaning: "ພູ", reading: "やま", word: "山", wordReading: "やま", lao: "ພູ", thai: "ภูเขา" },
+    { id: 379, kanji: "川", kanjiMeaning: "ແມ່ນ້ຳ", reading: "かわ", word: "川", wordReading: "かわ", lao: "ແມ່ນ້ຳ", thai: "แม่น้ำ" },
+    { id: 380, kanji: "海", kanjiMeaning: "ທະເລ", reading: "うみ", word: "海", wordReading: "うみ", lao: "ທະເລ", thai: "ทะเล" },
+    { id: 381, kanji: "島", kanjiMeaning: "ເກາະ", reading: "しま", word: "島", wordReading: "しま", lao: "ເກາະ", thai: "เกาะ" },
+    { id: 382, kanji: "森", kanjiMeaning: "ປ່າໄມ້", reading: "もり", word: "森", wordReading: "もり", lao: "ປ່າໄມ້", thai: "ป่า" },
+    { id: 383, kanji: "客", kanjiMeaning: "ແຂກ/ລູກຄ້າ", reading: "キャク", word: "客", wordReading: "きゃく", lao: "ແຂກ/ລູກຄ້າ", thai: "แขก/ลูกค้า" },
+    { id: 384, kanji: "観", kanjiMeaning: "ເບິ່ງ/ຊົມ", reading: "カン", word: "観光地", wordReading: "かんこうち", lao: "ສະຖານທີ່ທ່ອງທ່ຽວ", thai: "สถานที่ท่องเที่ยว" },
+    { id: 385, kanji: "光", kanjiMeaning: "ແສງສະຫວ່າງ", reading: "コウ", word: "観光地", wordReading: "かんこうち", lao: "ສະຖານທີ່ທ່ອງທ່ຽວ", thai: "สถานที่ท่องเที่ยว" },
+    { id: 386, kanji: "地", kanjiMeaning: "ພື້ນດິນ/ສະຖານທີ່", reading: "チ", word: "観光地", wordReading: "かんこうち", lao: "ສະຖານທີ່ທ່ອງທ່ຽວ", thai: "สถานที่ท่องเที่ยว" },
+    { id: 387, kanji: "経", kanjiMeaning: "ຜ່ານ", reading: "ケイ", word: "経験", wordReading: "けいけん", lao: "ປະສົບການ", thai: "ประสบการณ์" },
+    { id: 388, kanji: "験", kanjiMeaning: "ທົດສອບ", reading: "ケン", word: "経験", wordReading: "けいけん", lao: "ປະສົບການ", thai: "ประสบการณ์" },
+    { id: 389, kanji: "上", kanjiMeaning: "ເທິງ/ເກັ່ງ", reading: "ジョウ", word: "上手（な）", wordReading: "じょうず（な）", lao: "ເກັ່ງ", thai: "เก่ง" },
+    { id: 390, kanji: "明", kanjiMeaning: "ແຈ້ງ/ສະຫວ່າງ", reading: "あか（るい）", word: "明るい", wordReading: "あかるい", lao: "ສະຫວ່າງ/ສົດໃສ", thai: "สว่าง/สดใส" },
+    { id: 391, kanji: "着", kanjiMeaning: "ໃສ່/ຮອດ", reading: "き（る）", word: "着る", wordReading: "きる", lao: "ນຸ່ງ/ໃສ່", thai: "สวม/ใส่" },
+    { id: 392, kanji: "手", kanjiMeaning: "ມື", reading: "シュ", word: "歌手", wordReading: "かしゅ", lao: "ນັກຮ້ອງ", thai: "นักร้อง" },
+    { id: 393, kanji: "手", kanjiMeaning: "ມື", reading: "*特別な読み方", word: "上手（な）", wordReading: "じょうず（な）", lao: "ເກັ່ງ", thai: "เก่ง" },
+    { id: 394, kanji: "写", kanjiMeaning: "ສຳເນົາ/ຖ່າຍ", reading: "シャ", word: "写真", wordReading: "しゃしん", lao: "ຮູບພາບ", thai: "รูปถ่าย" },
+    { id: 395, kanji: "真", kanjiMeaning: "ຄວາມຈິງ", reading: "シン", word: "写真", wordReading: "しゃしん", lao: "ຮູບພາບ", thai: "รูปถ่าย" },
+    { id: 396, kanji: "歌", kanjiMeaning: "ເພງ/ຮ້ອງເພງ", reading: "うた", word: "歌", wordReading: "うた", lao: "ເພງ", thai: "เพลง" },
+    { id: 397, kanji: "歌", kanjiMeaning: "ເພງ/ຮ້ອງເພງ", reading: "カ", word: "歌手", wordReading: "かしゅ", lao: "ນັກຮ້ອງ", thai: "นักร้อง" },
+    { id: 398, kanji: "長", kanjiMeaning: "ຍາວ/ຫົວໜ້າ", reading: "なが（い）", word: "長い", wordReading: "ながい", lao: "ຍາວ", thai: "ยาว" },
+    { id: 399, kanji: "短", kanjiMeaning: "ສັ້ນ", reading: "みじか（い）", word: "短い", wordReading: "みじかい", lao: "ສັ້ນ", thai: "สั้น" },
+    { id: 400, kanji: "立", kanjiMeaning: "ຢືນ", reading: "た（つ）", word: "立つ", wordReading: "たつ", lao: "ຢືນ", thai: "ยืน" },
+{ id: 401, kanji: "泣", kanjiMeaning: "ໄຫ້", reading: "な（く）", word: "泣く", wordReading: "なく", lao: "ໄຫ້/ຮ້ອງໄຫ້", thai: "ร้องไห้" },
+    { id: 402, kanji: "会", kanjiMeaning: "ພົບ/ລວມ", reading: "カイ", word: "会計", wordReading: "かいけい", lao: "ການຄິດເງິນ/ບິນ", thai: "การคิดเงิน/เช็คบิล" },
+    { id: 403, kanji: "予", kanjiMeaning: "ລ່ວງໜ້າ", reading: "ヨ", word: "予約", wordReading: "よやく", lao: "ຈອງ", thai: "จอง" },
+    { id: 404, kanji: "生", kanjiMeaning: "ດິບ/ສົດ", reading: "なま", word: "生", wordReading: "なま", lao: "ດິບ/ສົດ", thai: "ดิบ/สด" },
+    { id: 405, kanji: "話", kanjiMeaning: "ລົມ/ເວົ້າ", reading: "ワ", word: "電話番号", wordReading: "でんわばんごう", lao: "ເບີໂທລະສັບ", thai: "เบอร์โทรศัพท์" },
+    { id: 406, kanji: "電", kanjiMeaning: "ໄຟຟ້າ", reading: "デン", word: "電話番号", wordReading: "でんわばんごう", lao: "ເບີໂທລະສັບ", thai: "เบอร์โทรศัพท์" },
+    { id: 407, kanji: "牛", kanjiMeaning: "ງົວ", reading: "ギュウ", word: "牛乳", wordReading: "ぎゅうにゅう", lao: "ນົມງົວ", thai: "นมวัว" },
+    { id: 408, kanji: "由", kanjiMeaning: "ເຫດຜົນ/ອິດສະຫຼະ", reading: "ユウ", word: "自由", wordReading: "じゆう", lao: "ອິດສະຫຼະ", thai: "อิสระ" },
+    { id: 409, kanji: "計", kanjiMeaning: "ວັດແທກ/ແຜນການ", reading: "ケイ", word: "会計", wordReading: "かいけい", lao: "ການຄິດເງິນ/ບິນ", thai: "การคิดเงิน/เช็คบิล" },
+    { id: 410, kanji: "注", kanjiMeaning: "ຖອກ/ສັ່ງ", reading: "チュウ", word: "注文", wordReading: "ちゅうもん", lao: "ສັ່ງ (ອາຫານ)", thai: "สั่ง (อาหาร)" },
+    { id: 411, kanji: "文", kanjiMeaning: "ປະໂຫຍກ/ຕົວໜັງສື", reading: "モン", word: "注文", wordReading: "ちゅうもん", lao: "ສັ່ງ (ອາຫານ)", thai: "สั่ง (อาหาร)" },
+    { id: 412, kanji: "約", kanjiMeaning: "ສັນຍາ/ປະມານ", reading: "ヤク", word: "予約", wordReading: "よやく", lao: "ຈອງ", thai: "จอง" },
+    { id: 413, kanji: "番", kanjiMeaning: "ລຳດັບ/ໝາຍເລກ", reading: "バン", word: "電話番号", wordReading: "でんわばんごう", lao: "ເບີໂທລະສັບ", thai: "เบอร์โทรศัพท์" },
+    { id: 414, kanji: "号", kanjiMeaning: "ໝາຍເລກ/ສັນຍານ", reading: "ゴウ", word: "電話番号", wordReading: "でんわばんごう", lao: "ເບີໂທລະສັບ", thai: "เบอร์โทรศัพท์" },
+    { id: 415, kanji: "様", kanjiMeaning: "ທ່ານ/ແບບ", reading: "さま", word: "～様", wordReading: "～さま", lao: "ທ່ານ～", thai: "ท่าน～" },
+    { id: 416, kanji: "飯", kanjiMeaning: "ເຂົ້າ", reading: "ハン", word: "ご飯", wordReading: "ごはん", lao: "ເຂົ້າ (ອາຫານ)", thai: "ข้าว (อาหาร)" },
+    { id: 417, kanji: "乳", kanjiMeaning: "ນົມ", reading: "ニュウ", word: "牛乳", wordReading: "ぎゅうにゅう", lao: "ນົມງົວ", thai: "นมวัว" },
+    { id: 418, kanji: "禁", kanjiMeaning: "ຫ້າມ", reading: "キン", word: "禁煙", wordReading: "きんえん", lao: "ຫ້າມສູບຢາ", thai: "ห้ามสูบบุหรี่" },
+    { id: 419, kanji: "煙", kanjiMeaning: "ຄວັນ", reading: "エン", word: "禁煙", wordReading: "きんえん", lao: "ຫ້າມສູບຢາ", thai: "ห้ามสูบบุหรี่" },
+    { id: 420, kanji: "自", kanjiMeaning: "ຕົນເອງ", reading: "ジ", word: "自由", wordReading: "じゆう", lao: "ອິດສະຫຼະ", thai: "อิสระ" },
+    { id: 421, kanji: "入", kanjiMeaning: "ໃສ່/ເຂົ້າ", reading: "い（れる）", word: "入れる", wordReading: "いれる", lao: "ໃສ່ເຂົ້າໄປ", thai: "ใส่เข้าไป" },
+    { id: 422, kanji: "方", kanjiMeaning: "ວິທີ/ທິດທາງ", reading: "かた", word: "～方", wordReading: "～かた", lao: "ວິທີ～", thai: "วิธี～" },
+    { id: 423, kanji: "足", kanjiMeaning: "ພຽງພໍ/ຂາ", reading: "ソク／ゾク", word: "満足（な）", wordReading: "まんぞく（な）", lao: "ພໍໃຈ", thai: "พอใจ" },
+    { id: 424, kanji: "塩", kanjiMeaning: "ເກືອ", reading: "しお", word: "塩", wordReading: "しお", lao: "ເກືອ", thai: "เกลือ" },
+    { id: 425, kanji: "油", kanjiMeaning: "ນ້ຳມັນ", reading: "あぶら", word: "油", wordReading: "あぶら", lao: "ນ້ຳມັນ", thai: "น้ำมัน" },
+    { id: 426, kanji: "量", kanjiMeaning: "ປະລິມານ", reading: "リョウ", word: "量", wordReading: "りょう", lao: "ປະລິມານ", thai: "ปริมาณ" },
+    { id: 427, kanji: "屋", kanjiMeaning: "ຮ້ານ/ຫຼັງຄາ", reading: "や", word: "～屋", wordReading: "～や", lao: "ຮ້ານ～", thai: "ร้าน～" },
+    { id: 428, kanji: "満", kanjiMeaning: "ເຕັມ", reading: "マン", word: "満足（な）", wordReading: "まんぞく（な）", lao: "ພໍໃຈ", thai: "พอใจ" },
+    { id: 429, kanji: "切", kanjiMeaning: "ຕັດ", reading: "き（る）", word: "切る", wordReading: "きる", lao: "ຕັດ", thai: "ตัด" },
+    { id: 430, kanji: "焼", kanjiMeaning: "ປີ້ງ/ຈືນ", reading: "や（く）", word: "焼く", wordReading: "やく", lao: "ປີ້ງ/ຈືນ/ຍ່າງ", thai: "ปิ้ง/ย่าง" },
+    { id: 431, kanji: "東", kanjiMeaning: "ຕາເວັນອອກ", reading: "トウ", word: "東京", wordReading: "とうきょう", lao: "ໂຕກຽວ", thai: "โตเกียว" },
+    { id: 432, kanji: "出", kanjiMeaning: "ອອກ", reading: "シュツ／シュッ", word: "出発する", wordReading: "しゅっぱつする", lao: "ອອກເດີນທາງ", thai: "ออกเดินทาง" },
+    { id: 433, kanji: "画", kanjiMeaning: "ຮູບພາບ/ແຜນ", reading: "かく", word: "計画", wordReading: "けいかく", lao: "ແຜນການ", thai: "แผนการ" },
+    { id: 434, kanji: "旅", kanjiMeaning: "ທ່ອງທ່ຽວ", reading: "リョ", word: "旅館", wordReading: "りょかん", lao: "ໂຮງແຮມແບບຍີ່ປຸ່ນ (ລຽວກັງ)", thai: "โรงแรมสไตล์ญี่ปุ่น (เรียวกัง)" },
+    { id: 435, kanji: "車", kanjiMeaning: "ລົດ", reading: "シャ", word: "自転車", wordReading: "じてんしゃ", lao: "ລົດຖີບ", thai: "รถจักรยาน" },
+    { id: 436, kanji: "館", kanjiMeaning: "ອາຄານ/ຫໍ", reading: "カン", word: "旅館", wordReading: "りょかん", lao: "ໂຮງແຮມແບບຍີ່ປຸ່ນ (ລຽວກັງ)", thai: "โรงแรมสไตล์ญี่ปุ่น (เรียวกัง)" },
+    { id: 437, kanji: "調", kanjiMeaning: "ກວດກາ/ຊອກຫາ", reading: "しら（べる）", word: "調べる", wordReading: "しらべる", lao: "ກວດກາ/ຊອກຫາ", thai: "ตรวจสอบ/ค้นหา" },
+    { id: 438, kanji: "計", kanjiMeaning: "ວັດແທກ/ແຜນການ", reading: "ケイ", word: "計画", wordReading: "けいかく", lao: "ແຜນການ", thai: "แผนการ" },
+    { id: 439, kanji: "自", kanjiMeaning: "ທຳມະຊາດ/ຕົນເອງ", reading: "シ", word: "自然", wordReading: "しぜん", lao: "ທຳມະຊາດ", thai: "ธรรมชาติ" },
+    { id: 440, kanji: "自", kanjiMeaning: "ຕົນເອງ", reading: "ジ", word: "自転車", wordReading: "じてんしゃ", lao: "ລົດຖີບ", thai: "รถจักรยาน" },
+    { id: 441, kanji: "然", kanjiMeaning: "ແນ່ນອນ/ສະພາບ", reading: "ゼン", word: "自然", wordReading: "しぜん", lao: "ທຳມະຊາດ", thai: "ธรรมชาติ" },
+    { id: 442, kanji: "交", kanjiMeaning: "ແລກປ່ຽນ/ຕັດກັນ", reading: "コウ", word: "交通", wordReading: "こうつう", lao: "ການຈະລາຈອນ/ການຄົມມະນາຄົມ", thai: "การจราจร/การคมนาคม" },
+    { id: 443, kanji: "通", kanjiMeaning: "ຜ່ານ", reading: "ツウ", word: "交通", wordReading: "こうつう", lao: "ການຈະລາຈອນ/ການຄົມມະນາຄົມ", thai: "การจราจร/การคมนาคม" },
+    { id: 444, kanji: "船", kanjiMeaning: "ເຮືອ", reading: "ふね", word: "船", wordReading: "ふね", lao: "ເຮືອ", thai: "เรือ" },
+    { id: 445, kanji: "転", kanjiMeaning: "ໝຸນ/ປ່ຽນ", reading: "テン", word: "自転車", wordReading: "じてんしゃ", lao: "ລົດຖີບ", thai: "รถจักรยาน" },
+    { id: 446, kanji: "京", kanjiMeaning: "ເມືອງຫຼວງ", reading: "キョウ", word: "東京", wordReading: "とうきょう", lao: "ໂຕກຽວ", thai: "โตเกียว" },
+    { id: 447, kanji: "遊", kanjiMeaning: "ຫຼິ້ນ", reading: "あそ（ぶ）", word: "遊ぶ", wordReading: "あそぶ", lao: "ຫຼິ້ນ", thai: "เล่น" },
+    { id: 448, kanji: "発", kanjiMeaning: "ອອກ/ປ່ອຍ", reading: "ハツ／パツ", word: "出発する", wordReading: "しゅっぱつする", lao: "ອອກເດີນທາງ", thai: "ออกเดินทาง" },
+    { id: 449, kanji: "週", kanjiMeaning: "ອາທິດ", reading: "シュウ", word: "週末", wordReading: "しゅうまつ", lao: "ທ້າຍອາທິດ", thai: "สุดสัปดาห์" },
+    { id: 450, kanji: "定", kanjiMeaning: "ກຳນົດ", reading: "テイ", word: "指定席", wordReading: "していせき", lao: "ບ່ອນນັ່ງທີ່ຖືກລະບຸ/ຈອງ", thai: "ที่นั่งระบุหมายเลข" },
+{ id: 451, kanji: "事", kanjiMeaning: "ເລື່ອງ/ວຽກ", reading: "ジ", word: "事故", wordReading: "じこ", lao: "ອຸບັດຕິເຫດ", thai: "อุบัติเหตุ" },
+    { id: 452, kanji: "着", kanjiMeaning: "ຮອດ/ໃສ່", reading: "チャク", word: "到着する", wordReading: "とうちゃくする", lao: "ໄປຮອດ", thai: "ไปถึง" },
+    { id: 453, kanji: "運", kanjiMeaning: "ຂັບ/ໂຊກ/ຂົນສົ່ງ", reading: "ウン", word: "運転", wordReading: "うんてん", lao: "ຂັບລົດ", thai: "ขับรถ" },
+    { id: 454, kanji: "光", kanjiMeaning: "ແສງສະຫວ່າງ", reading: "ひか（る）", word: "光る", wordReading: "ひかる", lao: "ສ່ອງແສງ", thai: "ส่องแสง" },
+    { id: 455, kanji: "転", kanjiMeaning: "ໝຸນ/ປ່ຽນ", reading: "テン", word: "運転", wordReading: "うんてん", lao: "ຂັບລົດ", thai: "ขับรถ" },
+    { id: 456, kanji: "故", kanjiMeaning: "ເຫດຜົນ/ສາເຫດ", reading: "コ", word: "事故", wordReading: "じこ", lao: "ອຸບັດຕິເຫດ", thai: "อุบัติเหตุ" },
+    { id: 457, kanji: "故", kanjiMeaning: "ເຫດຜົນ/ສາເຫດ", reading: "コ", word: "故障", wordReading: "こしょう", lao: "ເພ/ຂັດຂ້ອງ", thai: "เสีย/ขัดข้อง" },
+    { id: 458, kanji: "障", kanjiMeaning: "ຂັດຂວາງ", reading: "ショウ", word: "故障", wordReading: "こしょう", lao: "ເພ/ຂັດຂ້ອງ", thai: "เสีย/ขัดข้อง" },
+    { id: 459, kanji: "指", kanjiMeaning: "ນິ້ວມື/ຊີ້", reading: "シ", word: "指定席", wordReading: "していせき", lao: "ບ່ອນນັ່ງທີ່ຖືກລະບຸ/ຈອງ", thai: "ที่นั่งระบุหมายเลข" },
+    { id: 460, kanji: "席", kanjiMeaning: "ບ່ອນນັ່ງ", reading: "セキ", word: "指定席", wordReading: "していせき", lao: "ບ່ອນນັ່ງທີ່ຖືກລະບຸ/ຈອງ", thai: "ที่นั่งระบุหมายเลข" },
+    { id: 461, kanji: "末", kanjiMeaning: "ທ້າຍ", reading: "マツ", word: "週末", wordReading: "しゅうまつ", lao: "ທ້າຍອາທິດ", thai: "สุดสัปดาห์" },
+    { id: 462, kanji: "絵", kanjiMeaning: "ຮູບແຕ້ມ", reading: "エ", word: "絵", wordReading: "え", lao: "ຮູບແຕ້ມ", thai: "รูปวาด" },
+    { id: 463, kanji: "空", kanjiMeaning: "ທ້ອງຟ້າ/ວ່າງເປົ່າ", reading: "そら", word: "空", wordReading: "そら", lao: "ທ້ອງຟ້າ", thai: "ท้องฟ้า" },
+    { id: 464, kanji: "泳", kanjiMeaning: "ລອຍນ້ຳ", reading: "およ（ぐ）", word: "泳ぐ", wordReading: "およぐ", lao: "ລອຍນ້ຳ", thai: "ว่ายน้ำ" },
+    { id: 465, kanji: "到", kanjiMeaning: "ໄປຮອດ", reading: "トウ", word: "到着する", wordReading: "とうちゃくする", lao: "ໄປຮອດ", thai: "ไปถึง" },
+    { id: 466, kanji: "水", kanjiMeaning: "ນ້ຳ", reading: "スイ", word: "水道", wordReading: "すいどう", lao: "ນ້ຳປະປາ", thai: "น้ำประปา" },
+    { id: 467, kanji: "広", kanjiMeaning: "ກວ້າງ", reading: "ひろ（い）", word: "広場", wordReading: "ひろば", lao: "ສະໜາມຫຼວງ/ລານກວ້າງ", thai: "ลานกว้าง" },
+    { id: 468, kanji: "上", kanjiMeaning: "ເທິງ/ຂຶ້ນໄປ", reading: "ジョウ", word: "～以上", wordReading: "～いじょう", lao: "～ຂຶ້ນໄປ", thai: "～ขึ้นไป" },
+    { id: 469, kanji: "中", kanjiMeaning: "ກາງ/ໃນ", reading: "チュウ", word: "中止", wordReading: "ちゅうし", lao: "ຍົກເລີກ/ຢຸດຕິ", thai: "ยกเลิก/หยุดติตรงกลาง" },
+    { id: 470, kanji: "月", kanjiMeaning: "ເດືອນ", reading: "ゲツ", word: "今月", wordReading: "こんげつ", lao: "ເດືອນນີ້", thai: "เดือนนี้" },
+    { id: 471, kanji: "今", kanjiMeaning: "ຕອນນີ້", reading: "コン", word: "今月", wordReading: "こんげつ", lao: "ເດືອນນີ້", thai: "เดือนนี้" },
+    { id: 472, kanji: "生", kanjiMeaning: "ເກີດ/ຜະລິດ", reading: "セイ", word: "生産する", wordReading: "せいさんする", lao: "ຜະລິດ", thai: "ผลิต" },
+    { id: 473, kanji: "事", kanjiMeaning: "ເລື່ອງ/ວຽກ", reading: "ジ", word: "工事", wordReading: "こうじ", lao: "ກໍ່ສ້າງ", thai: "ก่อสร้าง" },
+    { id: 474, kanji: "道", kanjiMeaning: "ທາງ", reading: "ドウ", word: "水道", wordReading: "すいどう", lao: "ນ້ຳປະປາ", thai: "น้ำประปา" },
+    { id: 475, kanji: "場", kanjiMeaning: "ສະຖານທີ່", reading: "ば", word: "広場", wordReading: "ひろば", lao: "ສະໜາມຫຼວງ/ລານກວ້າງ", thai: "ลานกว้าง" },
+    { id: 476, kanji: "場", kanjiMeaning: "ສະຖານທີ່/ກໍລະນີ", reading: "ば", word: "場合", wordReading: "ばあい", lao: "ກໍລະນີ", thai: "กรณี" },
+    { id: 477, kanji: "止", kanjiMeaning: "ຢຸດ", reading: "シ", word: "中止", wordReading: "ちゅうし", lao: "ຍົກເລີກ/ຢຸດຕິ", thai: "ยกเลิก/หยุดติตรงกลาง" },
+    { id: 478, kanji: "合", kanjiMeaning: "ລວມ/ເຂົ້າກັນ", reading: "あい", word: "場合", wordReading: "ばあい", lao: "ກໍລະນີ", thai: "กรณี" },
+    { id: 479, kanji: "知", kanjiMeaning: "ຮູ້", reading: "し（らせる）", word: "お知らせ", wordReading: "おしらせ", lao: "ແຈ້ງການ/ແຈ້ງໃຫ້ຊາບ", thai: "ประกาศ/แจ้งให้ทราบ" },
+    { id: 480, kanji: "工", kanjiMeaning: "ວິສະວະກຳ/ການຊ່າງ", reading: "コウ", word: "工事", wordReading: "こうじ", lao: "ກໍ່ສ້າງ", thai: "ก่อสร้าง" },
+    { id: 481, kanji: "条", kanjiMeaning: "ມາດຕາ/ເງື່ອນໄຂ", reading: "ジョウ", word: "条件", wordReading: "じょうけん", lao: "ເງື່ອນໄຂ", thai: "เงื่อนไข" },
+    { id: 482, kanji: "件", kanjiMeaning: "ເລື່ອງ/ກໍລະນີ", reading: "ケン", word: "条件", wordReading: "じょうけん", lao: "ເງື່ອນໄຂ", thai: "เงื่อนไข" },
+    { id: 483, kanji: "以", kanjiMeaning: "ຕັ້ງແຕ່/ກວ່າ", reading: "イ", word: "～以上", wordReading: "～いじょう", lao: "～ຂຶ້ນໄປ", thai: "～ขึ้นไป" },
+    { id: 484, kanji: "開", kanjiMeaning: "ເປີດ", reading: "ひら（く）", word: "開く", wordReading: "ひらく", lao: "ເປີດ/ຈັດ(ງານ)", thai: "เปิด/จัด(งาน)" },
+    { id: 485, kanji: "産", kanjiMeaning: "ເກີດ/ຜະລິດ", reading: "サン", word: "生産する", wordReading: "せいさんする", lao: "ຜະລິດ", thai: "ผลิต" },
+    { id: 486, kanji: "国", kanjiMeaning: "ປະເທດ", reading: "コク", word: "国際交流", wordReading: "こくさいこうりゅう", lao: "ການແລກປ່ຽນສາກົນ", thai: "การแลกเปลี่ยนระหว่างประเทศ" },
+    { id: 487, kanji: "年", kanjiMeaning: "ປີ", reading: "ネン", word: "来年", wordReading: "らいねん", lao: "ປີໜ້າ", thai: "ปีหน้า" },
+    { id: 488, kanji: "会", kanjiMeaning: "ພົບ/ລວມ/ງານ", reading: "カイ", word: "会場", wordReading: "かいじょう", lao: "ສະຖານທີ່ຈັດງານ", thai: "สถานที่จัดงาน" },
+    { id: 489, kanji: "来", kanjiMeaning: "ມາ", reading: "ライ", word: "来年", wordReading: "らいねん", lao: "ປີໜ້າ", thai: "ปีหน้า" },
+    { id: 490, kanji: "場", kanjiMeaning: "ສະຖານທີ່", reading: "ジョウ", word: "会場", wordReading: "かいじょう", lao: "ສະຖານທີ່ຈັດງານ", thai: "สถานที่จัดงาน" },
+    { id: 491, kanji: "止", kanjiMeaning: "ຢຸດ", reading: "シ", word: "禁止", wordReading: "きんし", lao: "ຫ້າມ", thai: "ห้าม" },
+    { id: 492, kanji: "体", kanjiMeaning: "ຮ່າງກາຍ", reading: "タイ", word: "体験", wordReading: "たいけん", lao: "ປະສົບການຈິງ", thai: "ประสบการณ์จริง" },
+    { id: 493, kanji: "験", kanjiMeaning: "ທົດສອບ/ຜ່ານ", reading: "ケン", word: "体験", wordReading: "たいけん", lao: "ປະສົບການຈິງ", thai: "ประสบการณ์จริง" },
+    { id: 494, kanji: "禁", kanjiMeaning: "ຫ້າມ", reading: "キン", word: "禁止", wordReading: "きんし", lao: "ຫ້າມ", thai: "ห้าม" },
+    { id: 495, kanji: "交", kanjiMeaning: "ແລກປ່ຽນ/ຕັດກັນ", reading: "コウ", word: "国際交流", wordReading: "こくさいこうりゅう", lao: "ການແລກປ່ຽນສາກົນ", thai: "การแลกเปลี่ยนระหว่างประเทศ" },
+    { id: 496, kanji: "世", kanjiMeaning: "ໂລກ/ຍຸກ", reading: "セ", word: "世界", wordReading: "せかい", lao: "ໂລກ", thai: "โลก" },
+    { id: 497, kanji: "界", kanjiMeaning: "ຂອບເຂດ/ໂລກ", reading: "カイ", word: "世界", wordReading: "せかい", lao: "ໂລກ", thai: "โลก" },
+    { id: 498, kanji: "際", kanjiMeaning: "ສາກົນ/ເວລາ", reading: "サイ", word: "国際交流", wordReading: "こくさいこうりゅう", lao: "ການແລກປ່ຽນສາກົນ", thai: "การแลกเปลี่ยนระหว่างประเทศ" },
+    { id: 499, kanji: "流", kanjiMeaning: "ໄຫຼ/ກະແສ", reading: "リュウ", word: "国際交流", wordReading: "こくさいこうりゅう", lao: "ການແລກປ່ຽນສາກົນ", thai: "การแลกเปลี่ยนระหว่างประเทศ" },
+    { id: 500, kanji: "紙", kanjiMeaning: "ເຈ້ຍ", reading: "かみ", word: "紙", wordReading: "かみ", lao: "ເຈ້ຍ", thai: "กระดาษ" },
+{ id: 501, kanji: "始", kanjiMeaning: "ເລີ່ມ", reading: "はじ（まる）", word: "始まる", wordReading: "はじまる", lao: "ເລີ່ມຕົ້ນ", thai: "เริ่มต้น" },
+    { id: 502, kanji: "申", kanjiMeaning: "ບອກ/ສະເໜີ", reading: "もう（す）", word: "申し込む", wordReading: "もうしこむ", lao: "ສະໝັກ", thai: "สมัคร" },
+    { id: 503, kanji: "込", kanjiMeaning: "ລວມເຂົ້າ", reading: "こ（む）", word: "申し込む", wordReading: "もうしこむ", lao: "ສະໝັກ", thai: "สมัคร" },
+    { id: 504, kanji: "月", kanjiMeaning: "ເດືອນ", reading: "ガツ", word: "正月", wordReading: "しょうがつ", lao: "ປີໃໝ່", thai: "ปีใหม่" },
+    { id: 505, kanji: "年", kanjiMeaning: "ປີ", reading: "とし", word: "今年", wordReading: "ことし", lao: "ປີນີ້", thai: "ปีนี้" },
+    { id: 506, kanji: "年", kanjiMeaning: "ປີ", reading: "ネン", word: "昨年", wordReading: "さくねん", lao: "ປີກາຍນີ້", thai: "ปีที่แล้ว" },
+    { id: 507, kanji: "年", kanjiMeaning: "ປີ", reading: "とし", word: "毎年", wordReading: "まいとし", lao: "ທຸກໆປີ", thai: "ทุกๆ ปี" },
+    { id: 508, kanji: "今", kanjiMeaning: "ຕອນນີ້", reading: "*特別な読み方", word: "今年", wordReading: "ことし", lao: "ປີນີ້", thai: "ปีนี้" },
+    { id: 509, kanji: "大", kanjiMeaning: "ໃຫຍ່", reading: "*特別な読み方", word: "大人", wordReading: "おとな", lao: "ຜູ້ໃຫຍ່", thai: "ผู้ใหญ่" },
+    { id: 510, kanji: "人", kanjiMeaning: "ຄົນ", reading: "*特別な読み方", word: "大人", wordReading: "おとな", lao: "ຜູ້ໃຫຍ່", thai: "ผู้ใหญ่" },
+    { id: 511, kanji: "昨", kanjiMeaning: "ຜ່ານມາ", reading: "サク", word: "昨年", wordReading: "さくねん", lao: "ປີກາຍນີ້", thai: "ปีที่แล้ว" },
+    { id: 512, kanji: "毎", kanjiMeaning: "ທຸກໆ", reading: "マイ", word: "毎年", wordReading: "まいとし", lao: "ທຸກໆປີ", thai: "ทุกๆ ปี" },
+    { id: 513, kanji: "別", kanjiMeaning: "ແຍກ/ພິເສດ", reading: "ベツ", word: "特別（な）", wordReading: "とくべつ（な）", lao: "ພິເສດ", thai: "พิเศษ" },
+    { id: 514, kanji: "文", kanjiMeaning: "ປະໂຫຍກ/ຕົວໜັງສື", reading: "ブン", word: "文化", wordReading: "ぶんか", lao: "ວັດທະນະທຳ", thai: "วัฒนธรรม" },
+    { id: 515, kanji: "化", kanjiMeaning: "ປ່ຽນແປງ", reading: "カ", word: "文化", wordReading: "ぶんか", lao: "ວັດທະນະທຳ", thai: "วัฒนธรรม" },
+    { id: 516, kanji: "祭", kanjiMeaning: "ງານບຸນ", reading: "まつ（り）", word: "祭り", wordReading: "まつり", lao: "ງານບຸນ", thai: "งานเทศกาล" },
+    { id: 517, kanji: "正", kanjiMeaning: "ຖືກຕ້ອງ", reading: "ショウ", word: "正月", wordReading: "しょうがつ", lao: "ປີໃໝ່", thai: "ปีใหม่" },
+    { id: 518, kanji: "式", kanjiMeaning: "ພິທີ/ຮູບແບບ", reading: "シキ", word: "～式", wordReading: "～しき", lao: "ພິທີ～", thai: "พิธี～" },
+    { id: 519, kanji: "米", kanjiMeaning: "ເຂົ້າສານ", reading: "こめ", word: "米", wordReading: "こめ", lao: "ເຂົ້າສານ", thai: "ข้าวสาร" },
+    { id: 520, kanji: "特", kanjiMeaning: "ພິເສດ", reading: "トク", word: "特別（な）", wordReading: "とくべつ（な）", lao: "ພິເສດ", thai: "พิเศษ" },
+    { id: 521, kanji: "分", kanjiMeaning: "ແບ່ງ/ສ່ວນ", reading: "ブン", word: "自分", wordReading: "じぶん", lao: "ຕົນເອງ", thai: "ตนเอง" },
+    { id: 522, kanji: "入", kanjiMeaning: "ເຂົ້າ", reading: "ニュウ", word: "入院する", wordReading: "にゅういんする", lao: "ເຂົ້າໂຮງໝໍ", thai: "เข้าโรงพยาบาล" },
+    { id: 523, kanji: "習", kanjiMeaning: "ຮຽນ/ຝຶກ", reading: "シュウ", word: "習慣", wordReading: "しゅうかん", lao: "ປະເພນີ/ຄວາມຊິນເຄີຍ", thai: "ประเพณี/ความเคยชิน" },
+    { id: 524, kanji: "店", kanjiMeaning: "ຮ້ານ", reading: "テン", word: "店長", wordReading: "てんちょう", lao: "ຜູ້ຈັດການຮ້ານ", thai: "ผู้จัดการร้าน" },
+    { id: 525, kanji: "全", kanjiMeaning: "ທັງໝົດ", reading: "ゼン", word: "全員", wordReading: "ぜんいん", lao: "ທຸກຄົນ", thai: "ทุกคน" },
+    { id: 526, kanji: "院", kanjiMeaning: "ສະຖາບັນ/ອາຄານ", reading: "イン", word: "入院する", wordReading: "にゅういんする", lao: "ເຂົ້າໂຮງໝໍ", thai: "เข้าโรงพยาบาล" },
+    { id: 527, kanji: "長", kanjiMeaning: "ຍາວ/ຫົວໜ້າ", reading: "チョウ", word: "店長", wordReading: "てんちょう", lao: "ຜູ້ຈັດການຮ້ານ", thai: "ผู้จัดการร้าน" },
+    { id: 528, kanji: "自", kanjiMeaning: "ຕົນເອງ", reading: "ジ", word: "自分", wordReading: "じぶん", lao: "ຕົນເອງ", thai: "ตนเอง" },
+    { id: 529, kanji: "通", kanjiMeaning: "ຜ່ານ", reading: "ツウ", word: "普通", wordReading: "ふつう", lao: "ທຳມະດາ/ປົກກະຕິ", thai: "ธรรมดา/ปกติ" },
+    { id: 530, kanji: "服", kanjiMeaning: "ເຄື່ອງນຸ່ງ", reading: "フク", word: "服", wordReading: "ふく", lao: "ເຄື່ອງນຸ່ງ", thai: "เสื้อผ้า" },
+    { id: 531, kanji: "袋", kanjiMeaning: "ຖົງ", reading: "ふくろ", word: "袋", wordReading: "ふくろ", lao: "ຖົງ", thai: "ถุง" },
+    { id: 532, kanji: "員", kanjiMeaning: "ສະມາຊິກ/ພະນັກງານ", reading: "イン", word: "全員", wordReading: "ぜんいん", lao: "ທຸກຄົນ", thai: "ทุกคน" },
+    { id: 533, kanji: "慣", kanjiMeaning: "ຊິນເຄີຍ", reading: "カン", word: "習慣", wordReading: "しゅうかん", lao: "ປະເພນີ/ຄວາມຊິນເຄີຍ", thai: "ประเพณี/ความเคยชิน" },
+    { id: 534, kanji: "普", kanjiMeaning: "ທົ່ວໄປ", reading: "フ", word: "普通", wordReading: "ふつう", lao: "ທຳມະດາ/ປົກກະຕິ", thai: "ธรรมดา/ปกติ" },
+    { id: 535, kanji: "暗", kanjiMeaning: "ມືດ", reading: "くら（い）", word: "暗い", wordReading: "くらい", lao: "ມືດ", thai: "มืด" },
+    { id: 536, kanji: "怒", kanjiMeaning: "ຮ້າຍ/ໂມໂຫ", reading: "おこ（る）", word: "怒る", wordReading: "おこる", lao: "ຮ້າຍ/ໂມໂຫ", thai: "โกรธ" },
+    { id: 537, kanji: "急", kanjiMeaning: "ຮີບຟ້າວ/ກະທັນຫັນ", reading: "キュウ", word: "急に", wordReading: "きゅうに", lao: "ກະທັນຫັນ", thai: "ทันทีทันใด/กะทันหัน" },
+    { id: 538, kanji: "男", kanjiMeaning: "ຜູ້ຊາຍ", reading: "ダン", word: "男性", wordReading: "だんせい", lao: "ຜູ້ຊາຍ", thai: "ผู้ชาย" },
+    { id: 539, kanji: "女", kanjiMeaning: "ຜູ້ຍິງ", reading: "ジョ", word: "女性", wordReading: "じょせい", lao: "ຜູ້ຍິງ", thai: "ผู้หญิง" },
+    { id: 540, kanji: "色", kanjiMeaning: "ສີ", reading: "いろ", word: "色", wordReading: "いろ", lao: "ສີ", thai: "สี" },
+    { id: 541, kanji: "赤", kanjiMeaning: "ສີແດງ", reading: "あか", word: "赤", wordReading: "あか", lao: "ສີແດງ", thai: "สีแดง" },
+    { id: 542, kanji: "青", kanjiMeaning: "ສີຟ້າ", reading: "あお", word: "青", wordReading: "あお", lao: "ສີຟ້າ", thai: "สีฟ้า" },
+    { id: 543, kanji: "黒", kanjiMeaning: "ສີດຳ", reading: "くろ", word: "黒", wordReading: "くろ", lao: "ສີດຳ", thai: "สีดำ" },
+    { id: 544, kanji: "白", kanjiMeaning: "ສີຂາວ", reading: "しろ", word: "白", wordReading: "しろ", lao: "ສີຂາວ", thai: "สีขาว" },
+    { id: 545, kanji: "性", kanjiMeaning: "ເພດ", reading: "セイ", word: "女性", wordReading: "じょせい", lao: "ຜູ້ຍິງ", thai: "ผู้หญิง" },
+    { id: 546, kanji: "性", kanjiMeaning: "ເພດ", reading: "セイ", word: "男性", wordReading: "だんせい", lao: "ຜູ້ຊາຍ", thai: "ผู้ชาย" },
+    { id: 547, kanji: "営", kanjiMeaning: "ດຳເນີນທຸລະກິດ", reading: "エイ", word: "営業する", wordReading: "えいぎょうする", lao: "ດຳເນີນທຸລະກິດ/ເປີດໃຫ້ບໍລິການ", thai: "ดำเนินธุรกิจ/เปิดให้บริการ" },
+    { id: 548, kanji: "業", kanjiMeaning: "ທຸລະກິດ/ວຽກ", reading: "ギョウ", word: "営業する", wordReading: "えいぎょうする", lao: "ດຳເນີນທຸລະກິດ/ເປີດໃຫ້ບໍລິການ", thai: "ดำเนินธุรกิจ/เปิดให้บริการ" },
+    { id: 549, kanji: "案", kanjiMeaning: "ແຜນ/ແນະນຳ", reading: "アン", word: "案内する", wordReading: "あんないする", lao: "ແນະນຳ/ພາທ່ຽວ", thai: "แนะนำ/พานำเที่ยว" },
+    { id: 550, kanji: "内", kanjiMeaning: "ໃນ", reading: "ナイ", word: "案内する", wordReading: "あんないする", lao: "ແນະນຳ/ພາທ່ຽວ", thai: "แนะนำ/พานำเที่ยว" },
+    { id: 551, kanji: "店", kanjiMeaning: "ຮ້ານ", reading: "テン", word: "店員", wordReading: "てんいん", lao: "ພະນັກງານຮ້ານ", thai: "พนักงานร้าน" },
+    { id: 552, kanji: "別", kanjiMeaning: "ແຍກ", reading: "ベツ", word: "税別", wordReading: "ぜいべつ", lao: "ບໍ່ລວມພາສີ", thai: "ไม่รวมภาษี" },
+    { id: 553, kanji: "親", kanjiMeaning: "ພໍ່ແມ່/ສະນິດສະໜົມ", reading: "シン", word: "親切（な）", wordReading: "しんせつ（な）", lao: "ໃຈດີ", thai: "ใจดี" },
+    { id: 554, kanji: "格", kanjiMeaning: "ສະຖານະ/ມາດຕະຖານ", reading: "カク", word: "価格", wordReading: "かかく", lao: "ລາຄາ", thai: "ราคา" },
+    { id: 555, kanji: "切", kanjiMeaning: "ຕັດ", reading: "セツ", word: "親切（な）", wordReading: "しんせつ（な）", lao: "ໃຈດີ", thai: "ใจดี" },
+{ id: 556, kanji: "員", kanjiMeaning: "ສະມາຊິກ/ພະນັກງານ", reading: "イン", word: "店員", wordReading: "てんいん", lao: "ພະນັກງານຮ້ານ", thai: "พนักงานร้าน" },
+    { id: 557, kanji: "商", kanjiMeaning: "ການຄ້າ", reading: "ショウ", word: "商品", wordReading: "しょうひん", lao: "ສິນຄ້າ", thai: "สินค้า" },
+    { id: 558, kanji: "品", kanjiMeaning: "ສິນຄ້າ/ສິ່ງຂອງ", reading: "ヒン", word: "商品", wordReading: "しょうひん", lao: "ສິນຄ້າ", thai: "สินค้า" },
+    { id: 559, kanji: "値", kanjiMeaning: "ຄ່າ/ລາຄາ", reading: "ね", word: "値段", wordReading: "ねだん", lao: "ລາຄາ", thai: "ราคา" },
+    { id: 560, kanji: "段", kanjiMeaning: "ຂັ້ນ/ລະດັບ", reading: "ダン", word: "値段", wordReading: "ねだん", lao: "ລາຄາ", thai: "ราคา" },
+    { id: 561, kanji: "価", kanjiMeaning: "ຄ່າ/ລາຄາ", reading: "カ", word: "価格", wordReading: "かかく", lao: "ລາຄາ", thai: "ราคา" },
+    { id: 562, kanji: "消", kanjiMeaning: "ລົບ/ມອດ/ໃຊ້ຈ່າຍ", reading: "ショウ", word: "消費税", wordReading: "しょうひぜい", lao: "ອາກອນຊົມໃຊ້", thai: "ภาษีมูลค่าเพิ่ม" },
+    { id: 563, kanji: "費", kanjiMeaning: "ຄ່າໃຊ້ຈ່າຍ", reading: "ヒ", word: "消費税", wordReading: "しょうひぜい", lao: "ອາກອນຊົມໃຊ້", thai: "ภาษีมูลค่าเพิ่ม" },
+    { id: 564, kanji: "税", kanjiMeaning: "ພາສີ/ອາກອນ", reading: "ゼイ", word: "消費税", wordReading: "しょうひぜい", lao: "ອາກອນຊົມໃຊ້", thai: "ภาษีมูลค่าเพิ่ม" },
+    { id: 565, kanji: "税", kanjiMeaning: "ພາສີ/ອາກອນ", reading: "ゼイ", word: "税別", wordReading: "ぜいべつ", lao: "ບໍ່ລວມພາສີ", thai: "ไม่รวมภาษี" },
+    { id: 566, kanji: "重", kanjiMeaning: "ໜັກ/ຊ້ອນກັນ", reading: "おも（い）", word: "重い", wordReading: "おもい", lao: "ໜັກ", thai: "หนัก" },
+    { id: 567, kanji: "軽", kanjiMeaning: "ເບົາ", reading: "かる（い）", word: "軽い", wordReading: "かるい", lao: "ເບົາ", thai: "เบา" },
+    { id: 568, kanji: "変", kanjiMeaning: "ປ່ຽນແປງ/ແປກ", reading: "か（わる）", word: "変わる", wordReading: "かわる", lao: "ປ່ຽນແປງ", thai: "เปลี่ยนแปลง" },
+    { id: 569, kanji: "金", kanjiMeaning: "ເງິນ/ຄຳ", reading: "キン", word: "料金", wordReading: "りょうきん", lao: "ຄ່າບໍລິການ/ຄ່າທຳນຽມ", thai: "ค่าบริการ/ค่าธรรมเนียม" },
+    { id: 570, kanji: "利", kanjiMeaning: "ຜົນປະໂຫຍດ", reading: "リ", word: "利用する", wordReading: "りようする", lao: "ນຳໃຊ້", thai: "ใช้ประโยชน์/ใช้งาน" },
+    { id: 571, kanji: "道", kanjiMeaning: "ທາງ/ວິຖີ", reading: "ドウ", word: "道具", wordReading: "どうぐ", lao: "ເຄື່ອງມື/ອຸປະກອນ", thai: "เครื่องมือ/อุปกรณ์" },
+    { id: 572, kanji: "館", kanjiMeaning: "ອາຄານ/ຫໍ", reading: "カン", word: "図書館", wordReading: "としょかん", lao: "ຫໍສະໝຸດ", thai: "ห้องสมุด" },
+    { id: 573, kanji: "料", kanjiMeaning: "ຄ່າທຳນຽມ/ວັດສະດຸ", reading: "リョウ", word: "料金", wordReading: "りょうきん", lao: "ຄ່າບໍລິການ/ຄ່າທຳນຽມ", thai: "ค่าบริการ/ค่าธรรมเนียม" },
+    { id: 574, kanji: "書", kanjiMeaning: "ຂຽນ/ປຶ້ມ", reading: "ショ", word: "図書館", wordReading: "としょかん", lao: "ຫໍສະໝຸດ", thai: "ห้องสมุด" },
+    { id: 575, kanji: "用", kanjiMeaning: "ໃຊ້/ທຸລະ", reading: "ヨウ", word: "利用する", wordReading: "りようする", lao: "ນຳໃຊ້", thai: "ใช้ประโยชน์/ใช้งาน" },
+    { id: 576, kanji: "開", kanjiMeaning: "ເປີດ", reading: "あ（く）", word: "開く", wordReading: "あく", lao: "ເປີດ", thai: "เปิด" },
+    { id: 577, kanji: "市", kanjiMeaning: "ເມືອງ/ຕະຫຼາດ", reading: "シ", word: "市", wordReading: "し", lao: "ເມືອງ/ເທດສະບານ", thai: "เมือง/เทศบาล" },
+    { id: 578, kanji: "図", kanjiMeaning: "ແຜນວາດ/ຮູບ", reading: "ト", word: "図書館", wordReading: "としょかん", lao: "ຫໍສະໝຸດ", thai: "ห้องสมุด" },
+    { id: 579, kanji: "具", kanjiMeaning: "ອຸປະກອນ/ເຄື່ອງມື", reading: "グ", word: "道具", wordReading: "どうぐ", lao: "ເຄື່ອງມື/ອຸປະກອນ", thai: "เครื่องมือ/อุปกรณ์" },
+    { id: 580, kanji: "点", kanjiMeaning: "ຈຸດ/ຄະແນນ", reading: "テン", word: "～点", wordReading: "～てん", lao: "～ຈຸດ/～ຄະແນນ", thai: "～จุด/～คะแนน" },
+    { id: 581, kanji: "必", kanjiMeaning: "ຈຳເປັນ/ແນ່ນອນ", reading: "ヒツ", word: "必要（な）", wordReading: "ひつよう（な）", lao: "ຈຳເປັນ", thai: "จำเป็น" },
+    { id: 582, kanji: "要", kanjiMeaning: "ສຳຄັນ/ຕ້ອງການ", reading: "ヨウ", word: "必要（な）", wordReading: "ひつよう（な）", lao: "ຈຳເປັນ", thai: "จำเป็น" },
+    { id: 583, kanji: "借", kanjiMeaning: "ຢືມ", reading: "か（りる）", word: "借りる", wordReading: "かりる", lao: "ຢືມ", thai: "ยืม" },
+    { id: 584, kanji: "返", kanjiMeaning: "ສົ່ງຄືນ", reading: "かえ（す）", word: "返す", wordReading: "かえす", lao: "ສົ່ງຄືນ/ຕອບແທນ", thai: "คืน/ตอบแทน" },
+    { id: 585, kanji: "閉", kanjiMeaning: "ປິດ", reading: "し（まる）", word: "閉まる", wordReading: "しまる", lao: "ປິດ", thai: "ปิด" },
+    { id: 586, kanji: "国", kanjiMeaning: "ປະເທດ", reading: "コク", word: "外国", wordReading: "がいこく", lao: "ຕ່າງປະເທດ", thai: "ต่างประเทศ" },
+    { id: 587, kanji: "入", kanjiMeaning: "ເຂົ້າ", reading: "ニュウ", word: "入力する", wordReading: "にゅうりょくする", lao: "ປ້ອນຂໍ້ມູນ/ພິມໃສ່", thai: "กรอกข้อมูล/พิมพ์" },
+    { id: 588, kanji: "口", kanjiMeaning: "ປາກ", reading: "くち／ぐち", word: "窓口", wordReading: "まどぐち", lao: "ຊ່ອງຕິດຕໍ່/ບ່ອນຕິດຕໍ່", thai: "ช่องติดต่อ/เคาน์เตอร์" },
+    { id: 589, kanji: "便", kanjiMeaning: "ຈົດໝາຍ/ຖ້ຽວບິນ/ສະດວກ", reading: "ビン", word: "郵便局", wordReading: "ゆうびんきょく", lao: "ໄປສະນີ", thai: "ไปรษณีย์" },
+    { id: 590, kanji: "近", kanjiMeaning: "ໃກ້", reading: "キン", word: "近所", wordReading: "きんじょ", lao: "ແຖວບ້ານ/ໃກ້ຄຽງ", thai: "แถวบ้าน/บริเวณใกล้เคียง" },
+    { id: 591, kanji: "所", kanjiMeaning: "ສະຖານທີ່", reading: "ショ／ジョ", word: "近所", wordReading: "きんじょ", lao: "ແຖວບ້ານ/ໃກ້ຄຽງ", thai: "แถวบ้าน/บริเวณใกล้เคียง" },
+    { id: 592, kanji: "動", kanjiMeaning: "ເຄື່ອນໄຫວ", reading: "ドウ", word: "自動", wordReading: "じどう", lao: "ອັດຕະໂນມັດ", thai: "อัตโนมัติ" },
+    { id: 593, kanji: "自", kanjiMeaning: "ຕົນເອງ", reading: "ジ", word: "自動", wordReading: "じどう", lao: "ອັດຕະໂນມັດ", thai: "อัตโนมัติ" },
+    { id: 594, kanji: "外", kanjiMeaning: "ນອກ", reading: "ガイ", word: "外国", wordReading: "がいこく", lao: "ຕ່າງປະເທດ", thai: "ต่างประเทศ" },
+    { id: 595, kanji: "情", kanjiMeaning: "ຄວາມຮູ້ສຶກ/ສະພາບການ", reading: "ジョウ", word: "情報", wordReading: "じょうほう", lao: "ຂໍ້ມູນ/ຂ່າວສານ", thai: "ข้อมูล/ข่าวสาร" },
+    { id: 596, kanji: "報", kanjiMeaning: "ລາຍງານ/ຕອບແທນ", reading: "ホウ", word: "情報", wordReading: "じょうほう", lao: "ຂໍ້ມູນ/ຂ່າວສານ", thai: "ข้อมูล/ข่าวสาร" },
+    { id: 597, kanji: "相", kanjiMeaning: "ຮ່ວມກັນ/ເຊິ່ງກັນແລະກັນ", reading: "ソウ", word: "相談", wordReading: "そうだん", lao: "ປຶກສາຫາລື", thai: "ปรึกษาหารือ" },
+    { id: 598, kanji: "談", kanjiMeaning: "ສົນທະນາ/ເລື່ອງລາວ", reading: "ダン", word: "相談", wordReading: "そうだん", lao: "ປຶກສາຫາລື", thai: "ปรึกษาหารือ" },
+    { id: 599, kanji: "質", kanjiMeaning: "ຄຸນນະພາບ/ເນື້ອແທ້", reading: "シツ", word: "質問", wordReading: "しつもん", lao: "ຄຳຖາມ/ຖາມ", thai: "คำถาม/ถาม" },
+    { id: 600, kanji: "問", kanjiMeaning: "ຖາມ/ຄຳຖາມ", reading: "モン", word: "質問", wordReading: "しつもん", lao: "ຄຳຖາມ/ຖາມ", thai: "คำถาม/ถาม" },
+    { id: 601, kanji: "窓", kanjiMeaning: "ປ່ອງຢ້ຽມ", reading: "まど", word: "窓口", wordReading: "まどぐち", lao: "ຊ່ອງຕິດຕໍ່/ບ່ອນຕິດຕໍ່", thai: "ช่องติดต่อ/เคาน์เตอร์" },
+    { id: 602, kanji: "郵", kanjiMeaning: "ໄປສະນີ", reading: "ユウ", word: "郵便局", wordReading: "ゆうびんきょく", lao: "ໄປສະນີ", thai: "ไปรษณีย์" },
+    { id: 603, kanji: "局", kanjiMeaning: "ກົມ/ສະຖານີ", reading: "キョク", word: "郵便局", wordReading: "ゆうびんきょく", lao: "ໄປສະນີ", thai: "ไปรษณีย์" },
+    { id: 604, kanji: "洗", kanjiMeaning: "ລ້າງ/ຊັກ", reading: "あら（う）", word: "洗う", wordReading: "あらう", lao: "ລ້າງ/ຊັກ", thai: "ล้าง/ซัก" },
+    { id: 605, kanji: "力", kanjiMeaning: "ກຳລັງ/ແຮງ", reading: "リョク", word: "入力する", wordReading: "にゅうりょくする", lao: "ປ້ອນຂໍ້ມູນ/ພິມໃສ່", thai: "กรอกข้อมูล/พิมพ์" },
+    { id: 606, kanji: "分", kanjiMeaning: "ແບ່ງ", reading: "わ（ける）", word: "分ける", wordReading: "わける", lao: "ແບ່ງ/ແຍກ", thai: "แบ่ง/แยก" },
+    { id: 607, kanji: "度", kanjiMeaning: "ອົງສາ/ຄັ້ງ", reading: "ド", word: "温度", wordReading: "おんど", lao: "ອຸນຫະພູມ", thai: "อุณหภูมิ" },
+    { id: 608, kanji: "出", kanjiMeaning: "ອອກ", reading: "だ（す）", word: "出す", wordReading: "だす", lao: "ເອົາອອກ/ສົ່ງ", thai: "เอาออก/ส่ง" },
+    { id: 609, kanji: "温", kanjiMeaning: "ອຸ່ນ", reading: "オン", word: "温度", wordReading: "おんど", lao: "ອຸນຫະພູມ", thai: "อุณหภูมิ" },
+    { id: 610, kanji: "定", kanjiMeaning: "ກຳນົດ", reading: "テイ", word: "設定する", wordReading: "せっていする", lao: "ຕັ້ງຄ່າ", thai: "ตั้งค่า" },
+    { id: 611, kanji: "消", kanjiMeaning: "ລຶບ/ມອດ", reading: "け（す）", word: "消す", wordReading: "けす", lao: "ລຶບ/ມອດ", thai: "ลบ/ปิด(ไฟ)" },
+    { id: 612, kanji: "危", kanjiMeaning: "ອັນຕະລາຍ", reading: "キ", word: "危険", wordReading: "きけん", lao: "ອັນຕະລາຍ", thai: "อันตราย" },
+    { id: 613, kanji: "険", kanjiMeaning: "ສູງຊັນ/ອັນຕະລາຍ", reading: "ケン", word: "危険", wordReading: "きけん", lao: "ອັນຕະລາຍ", thai: "อันตราย" },
+    { id: 614, kanji: "種", kanjiMeaning: "ຊະນິດ/ເມັດ", reading: "シュ", word: "～種類", wordReading: "～しゅるい", lao: "～ຊະນິດ/～ປະເພດ", thai: "～ชนิด/～ประเภท" },
+    { id: 615, kanji: "類", kanjiMeaning: "ປະເພດ", reading: "ルイ", word: "～種類", wordReading: "～しゅるい", lao: "～ຊະນິດ/～ປະເພດ", thai: "～ชนิด/～ประเภท" },
+    { id: 616, kanji: "捨", kanjiMeaning: "ຖິ້ມ", reading: "す（てる）", word: "捨てる", wordReading: "すてる", lao: "ຖິ້ມ", thai: "ทิ้ง" },
+    { id: 617, kanji: "燃", kanjiMeaning: "ໄໝ້", reading: "も（える）", word: "燃える", wordReading: "もえる", lao: "ໄໝ້", thai: "ไหม้" },
+    { id: 618, kanji: "決", kanjiMeaning: "ຕັດສິນໃຈ", reading: "き（める）", word: "決める", wordReading: "きめる", lao: "ຕັດສິນໃຈ/ກຳນົດ", thai: "ตัดสินใจ/กำหนด" },
+    { id: 619, kanji: "設", kanjiMeaning: "ຕັ້ງ/ສ້າງ", reading: "セツ／セッ", word: "設定する", wordReading: "せっていする", lao: "ຕັ້ງຄ່າ", thai: "ตั้งค่า" },
+    { id: 620, kanji: "大", kanjiMeaning: "ໃຫຍ່", reading: "タイ", word: "大切（な）", wordReading: "たいせつ（な）", lao: "ສຳຄັນ", thai: "สำคัญ" },
+    { id: 621, kanji: "風", kanjiMeaning: "ລົມ", reading: "フウ", word: "台風", wordReading: "たいふう", lao: "ພາຍຸໄຕ້ຝຸ່ນ", thai: "พายุไต้ฝุ่น" },
+    { id: 622, kanji: "地", kanjiMeaning: "ດິນ/ພື້ນ", reading: "ジ", word: "地震", wordReading: "じしん", lao: "ແຜ່ນດິນໄຫວ", thai: "แผ่นดินไหว" },
+    { id: 623, kanji: "切", kanjiMeaning: "ຕັດ/ສຳຄັນ", reading: "セツ", word: "大切（な）", wordReading: "たいせつ（な）", lao: "ສຳຄັນ", thai: "สำคัญ" },
+    { id: 624, kanji: "外", kanjiMeaning: "ນອກ", reading: "そと", word: "外", wordReading: "そと", lao: "ທາງນອກ/ຂ້າງນອກ", thai: "ข้างนอก" },
+    { id: 625, kanji: "危", kanjiMeaning: "ອັນຕະລາຍ", reading: "あぶ（ない）", word: "危ない", wordReading: "あぶない", lao: "ອັນຕະລາຍ", thai: "อันตราย" },
+    { id: 626, kanji: "震", kanjiMeaning: "ສັ່ນສະເທືອນ", reading: "シン", word: "地震", wordReading: "じしん", lao: "ແຜ່ນດິນໄຫວ", thai: "แผ่นดินไหว" },
+    { id: 627, kanji: "台", kanjiMeaning: "ແທ່ນ/ຖານ", reading: "タイ", word: "台風", wordReading: "たいふう", lao: "ພາຍຸໄຕ້ຝຸ່ນ", thai: "พายุไต้ฝุ่น" },
+    { id: 628, kanji: "声", kanjiMeaning: "ສຽງຄົນ/ສັດ", reading: "こえ", word: "声", wordReading: "こえ", lao: "ສຽງຄົນ/ສັດ", thai: "เสียง (คน/สัตว์)" },
+    { id: 629, kanji: "心", kanjiMeaning: "ໃຈ", reading: "シン", word: "心配（な）", wordReading: "しんぱい（な）", lao: "ເປັນຫ່ວງ", thai: "เป็นห่วง/กังวล" },
+    { id: 630, kanji: "配", kanjiMeaning: "ແຈກຢາຍ/ຈັດສັນ", reading: "ハイ／パイ", word: "心配（な）", wordReading: "しんぱい（な）", lao: "ເປັນຫ່ວງ", thai: "เป็นห่วง/กังวล" },
+    { id: 631, kanji: "集", kanjiMeaning: "ລວມ/ເຕົ້າໂຮມ", reading: "あつ（まる）", word: "集まる", wordReading: "あつまる", lao: "ລວມຕົວ/ເຕົ້າໂຮມກັນ", thai: "รวมตัว/ชุมนุม" },
+    { id: 632, kanji: "進", kanjiMeaning: "ກ້າວໜ້າ/ເດີນໜ້າ", reading: "すす（む）", word: "進む", wordReading: "すすむ", lao: "ກ້າວໄປຂ້າງໜ້າ/ດຳເນີນຕໍ່", thai: "ก้าวหน้า/เดินหน้า" },
+    { id: 633, kanji: "大", kanjiMeaning: "ໃຫຍ່", reading: "タイ", word: "大変（な）", wordReading: "たいへん（な）", lao: "ຍາກລຳບາກ/ຫຼາຍ", thai: "ลำบาก/มาก" },
+    { id: 634, kanji: "近", kanjiMeaning: "ໃກ້", reading: "キン", word: "最近", wordReading: "さいきん", lao: "ຊ່ວງນີ້/ໝູ່ຮຸ່ນນີ້", thai: "ช่วงนี้/เร็วๆ นี้" },
+    { id: 635, kanji: "苦", kanjiMeaning: "ຂົມ/ລຳບາກ", reading: "ク", word: "苦労する", wordReading: "くろうする", lao: "ລຳບາກ", thai: "ลำบาก/เหนื่อยยาก" },
+    { id: 636, kanji: "慣", kanjiMeaning: "ຊິນເຄີຍ", reading: "な（れる）", word: "慣れる", wordReading: "なれる", lao: "ຊິນເຄີຍ", thai: "เคยชิน/คุ้นเคย" },
+    { id: 637, kanji: "業", kanjiMeaning: "ວຽກ/ກິດຈະການ", reading: "ギョウ", word: "授業", wordReading: "じゅぎょう", lao: "ຊົ່ວໂມງຮຽນ/ການຮຽນການສອນ", thai: "ชั่วโมงเรียน/การสอน" },
+    { id: 638, kanji: "変", kanjiMeaning: "ປ່ຽນແປງ/ແປກ", reading: "ヘン", word: "大変（な）", wordReading: "たいへん（な）", lao: "ຍາກລຳບາກ/ຫຼາຍ", thai: "ลำบาก/มาก" },
+    { id: 639, kanji: "問", kanjiMeaning: "ຖາມ/ຄຳຖາມ", reading: "モン", word: "問題", wordReading: "もんだい", lao: "ບັນຫາ/ຄຳຖາມ", thai: "ปัญหา/คำถาม" },
+    { id: 640, kanji: "最", kanjiMeaning: "ທີ່ສຸດ", reading: "サイ", word: "最近", wordReading: "さいきん", lao: "ຊ່ວງນີ້/ໝູ່ຮຸ່ນນີ້", thai: "ช่วงนี้/เร็วๆ นี้" },
+    { id: 641, kanji: "授", kanjiMeaning: "ມອບໃຫ້/ສອນ", reading: "ジュ", word: "授業", wordReading: "じゅぎょう", lao: "ຊົ່ວໂມງຮຽນ/ການຮຽນການສອນ", thai: "ชั่วโมงเรียน/การสอน" },
+    { id: 642, kanji: "題", kanjiMeaning: "ຫົວຂໍ້", reading: "ダイ", word: "問題", wordReading: "もんだい", lao: "ບັນຫາ/ຄຳຖາມ", thai: "ปัญหา/คำถาม" },
+    { id: 643, kanji: "困", kanjiMeaning: "ລຳບາກ/ມີບັນຫາ", reading: "こま（る)", word: "困る", wordReading: "こまる", lao: "ລຳບາກ/ມີບັນຫາ", thai: "ลำบาก/เดือดร้อน" },
+    { id: 644, kanji: "違", kanjiMeaning: "ແຕກຕ່າງ/ຜິດ", reading: "ちが(う)", word: "違う", wordReading: "ちがう", lao: "ແຕກຕ່າງ/ຜິດ", thai: "แตกต่าง/ผิด" },
+    { id: 645, kanji: "増", kanjiMeaning: "ເພີ່ມຂຶ້ນ", reading: "ふ（える）", word: "増える", wordReading: "ふえる", lao: "ເພີ່ມຂຶ້ນ", thai: "เพิ่มขึ้น" },
+    { id: 646, kanji: "笑", kanjiMeaning: "ຫົວ", reading: "わら（う）", word: "笑う", wordReading: "わらう", lao: "ຫົວ", thai: "หัวเราะ/ยิ้ม" },
+    { id: 647, kanji: "労", kanjiMeaning: "ແຮງງານ/ລຳບາກ", reading: "ロウ", word: "苦労する", wordReading: "くろうする", lao: "ລຳບາກ", thai: "ลำบาก/เหนื่อยยาก" },
+    { id: 648, kanji: "学", kanjiMeaning: "ຮຽນ", reading: "ガク", word: "留学する", wordReading: "りゅうがくする", lao: "ຮຽນຕໍ່ຕ່າງປະເທດ", thai: "เรียนต่อต่างประเทศ" },
+    { id: 649, kanji: "住", kanjiMeaning: "ອາໄສຢູ່", reading: "す（む）", word: "住む", wordReading: "すむ", lao: "ອາໄສຢູ່", thai: "อาศัยอยู่" },
+    { id: 650, kanji: "立", kanjiMeaning: "ຢືນ/ຕັ້ງ", reading: "た（つ）", word: "役に立つ", wordReading: "やくにたつ", lao: "ມີປະໂຫຍດ", thai: "มีประโยชน์" },
+    { id: 651, kanji: "特", kanjiMeaning: "ພິເສດ", reading: "トク", word: "特に", wordReading: "とくに", lao: "ເປັນພິເສດ/ໂດຍສະເພາະ", thai: "เป็นพิเศษ/โดยเฉพาะ" },
+    { id: 652, kanji: "業", kanjiMeaning: "ວຽກ/ກິດຈະການ", reading: "ギョウ", word: "卒業する", wordReading: "そつぎょうする", lao: "ຮຽນຈົບ", thai: "เรียนจบ/สำเร็จการศึกษา" },
+    { id: 653, kanji: "集", kanjiMeaning: "ລວມ/ເຕົ້າໂຮມ", reading: "シュウ", word: "募集", wordReading: "ぼしゅう", lao: "ຮັບສະໝັກ", thai: "รับสมัคร" },
+    { id: 654, kanji: "希", kanjiMeaning: "ຫວັງ/ຫາຍາກ", reading: "キ", word: "希望", wordReading: "きぼう", lao: "ຄວາມຫວັງ/ຄວາມຕ້ອງການ", thai: "ความหวัง/ความต้องการ" },
+    { id: 655, kanji: "望", kanjiMeaning: "ຫວັງ/ເບິ່ງ", reading: "ボウ", word: "希望", wordReading: "きぼう", lao: "ຄວາມຫວັງ/ຄວາມຕ້ອງການ", thai: "ความหวัง/ความต้องการ" },
+    { id: 656, kanji: "募", kanjiMeaning: "ລະດົມ/ຮັບສະໝັກ", reading: "ボ", word: "募集", wordReading: "ぼしゅう", lao: "ຮັບສະໝັກ", thai: "รับสมัคร" },
+    { id: 657, kanji: "建", kanjiMeaning: "ສ້າງ", reading: "た（てる）", word: "建てる", wordReading: "たてる", lao: "ສ້າງ", thai: "สร้าง (อาคาร)" },
+    { id: 658, kanji: "続", kanjiMeaning: "ສືບຕໍ່", reading: "つづ（ける）", word: "続ける", wordReading: "つづける", lao: "ສືບຕໍ່/ເຮັດຕໍ່ໄປ", thai: "ทำต่อไป/สืบต่อ" },
+    { id: 659, kanji: "考", kanjiMeaning: "ຄິດ", reading: "かんが（える）", word: "考える", wordReading: "かんがえる", lao: "ຄິດ/ພິຈາລະນາ", thai: "คิด/พิจารณา" },
+    { id: 660, kanji: "役", kanjiMeaning: "ໜ້າທີ່/ບົດບາດ", reading: "ヤク", word: "役に立つ", wordReading: "やくにたつ", lao: "ມີປະໂຫຍດ", thai: "มีประโยชน์" },
+    { id: 661, kanji: "卒", kanjiMeaning: "ຈົບການສຶກສາ", reading: "ソツ", word: "卒業する", wordReading: "そつぎょうする", lao: "ຮຽນຈົບ", thai: "เรียนจบ/สำเร็จการศึกษา" },
+    { id: 662, kanji: "留", kanjiMeaning: "ຢຸດ/ພັກຢູ່", reading: "リュウ", word: "留学する", wordReading: "りゅうがくする", lao: "ຮຽນຕໍ່ຕ່າງປະເທດ", thai: "เรียนต่อต่างประเทศ" }
+
+];
+
+document.getElementById('total-kanji').innerText = kanjiData.length;
+
+const app = {
+    user: null,
+    activeList: [],
+    
+    // Global State
+    currentStep: 0, // 1, 2, 3, 4
+    currentIndex: 0,
+    startTime: null,
+    
+    // Overall Stats
+    stats_s1_total: 0,
+    stats_s2_total: 0,
+    stats_s3_total: 0,
+    stats_s4_total: 0,
+    stats_s1_correct: 0,
+    stats_s2_correct: 0,
+    stats_s3_correct: 0,
+    stats_s4_correct: 0,
+
+    // Step 1 State
+    s1_currentRound: 1,
+    s1_activeList: [],
+    s1_nextRoundQueue: [],
+
+    // Step 2 State
+    s2_questions: [],
+    s2_currentQ: 0,
+    s2_answered: false,
+    s2_mistakeMade: false,
+
+    // Step 3 State
+    s3_currentWordChars: [],
+    s3_userAnswers: [],
+    s3_mistakes: 0,
+
+    // Step 4 State
+    s4_wrongAttempts: 0,
+
+    // Utility: Show specific page
+    showPage(pageId, showHeader = false) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+        
+        const header = document.getElementById('learning-header');
+        if (showHeader) {
+            header.classList.remove('hidden');
+            header.classList.add('block');
+        } else {
+            header.classList.add('hidden');
+            header.classList.remove('block');
+        }
+    },
+
+    // Utility: Update Progress Bar
+    updateProgress(current, total, title) {
+        const pct = total === 0 ? 0 : (current / total) * 100;
+        document.getElementById('main-progress').style.width = `${pct}%`;
+        document.getElementById('step-counter').innerText = `${current}/${total}`;
+        if(title) document.getElementById('step-title').innerText = title;
+    },
+
+    // Utility: Shuffle Array
+    shuffle(array) {
+        let currentIndex = array.length,  randomIndex;
+        while (currentIndex != 0) {
+            randomIndex = Math.floor(Math.random() * currentIndex);
+            currentIndex--;
+            [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+        }
+        return array;
+    },
+
+    // ----------------------------------------------------
+    // INITIALIZATION
+    // ----------------------------------------------------
+    login() {
+        const id = document.getElementById('login-id').value.trim();
+        const name = document.getElementById('login-name').value.trim();
+        const found = usersDB.find(u => u.id === id && u.name.toLowerCase() === name.toLowerCase());
+        
+        if (found) {
+            this.user = found;
+            document.getElementById('login-error').classList.add('hidden');
+            this.populateListTab();
+            this.showPage('page-setup');
+        } else {
+            document.getElementById('login-error').classList.remove('hidden');
+        }
+    },
+
+    switchSetupTab(tab) {
+        const setupBtn = document.getElementById('tab-setup-btn');
+        const listBtn = document.getElementById('tab-list-btn');
+        const setupContent = document.getElementById('tab-setup-content');
+        const listContent = document.getElementById('tab-list-content');
+
+        if(tab === 'setup') {
+            setupBtn.classList.replace('text-stone-400', 'text-blue-600');
+            setupBtn.classList.replace('border-transparent', 'border-blue-600');
+            listBtn.classList.replace('text-blue-600', 'text-stone-400');
+            listBtn.classList.replace('border-blue-600', 'border-transparent');
+            setupContent.classList.remove('hidden');
+            listContent.classList.add('hidden');
+        } else {
+            listBtn.classList.replace('text-stone-400', 'text-blue-600');
+            listBtn.classList.replace('border-transparent', 'border-blue-600');
+            setupBtn.classList.replace('text-blue-600', 'text-stone-400');
+            setupBtn.classList.replace('border-blue-600', 'border-transparent');
+            listContent.classList.remove('hidden');
+            setupContent.classList.add('hidden');
+        }
+    },
+
+    populateListTab() {
+        const container = document.getElementById('tab-list-content');
+        container.innerHTML = kanjiData.map((item, index) => `
+            <div class="border-b border-stone-100 pb-2 flex items-center space-x-2">
+                <div class="text-stone-400 font-bold text-sm w-5 text-right shrink-0">${index + 1}.</div>
+                <div class="flex flex-col items-center justify-center w-16 shrink-0">
+                    <div class="text-xl font-bold text-stone-800">${item.kanji}</div>
+                    <div class="text-[10px] text-stone-500 font-bold uppercase text-center mt-0.5">${item.kanjiMeaning}</div>
+                </div>
+                <div>
+                    <div class="text-sm font-bold text-blue-600">${item.word} (${item.wordReading})</div>
+                    <div class="text-xs text-stone-500">${item.lao} / ${item.thai}</div>
+                </div>
+            </div>
+        `).join('');
+    },
+
+    startApp() {
+        const start = parseInt(document.getElementById('range-start').value);
+        const end = parseInt(document.getElementById('range-end').value);
+        
+        if (!start || !end || start > end || start < 1 || end > kanjiData.length) {
+            alert(`Please enter a valid range between 1 and ${kanjiData.length}`);
+            return;
+        }
+
+        this.activeList = kanjiData.slice(start - 1, end);
+        
+        this.stats_s1_total = this.activeList.length;
+        this.stats_s2_total = this.activeList.length * 2;
+        this.stats_s3_total = this.activeList.length;
+        this.stats_s4_total = this.activeList.length;
+        
+        this.stats_s1_correct = 0;
+        this.stats_s2_correct = 0;
+        this.stats_s3_correct = 0;
+        this.stats_s4_correct = 0;
+
+        this.startTime = new Date();
+        this.startStep1();
+    },
+
+    // Utility: Play Transition Animation
+    playAnimation(type, callback, extraParam) {
+        const overlay = document.getElementById('animation-overlay');
+        const content = document.getElementById('animation-content');
+        overlay.classList.remove('hidden');
+        
+        if (type === 'star') {
+            content.innerHTML = `
+                <div class="anim-star text-yellow-400 drop-shadow-lg">⭐</div>
+                <h2 class="text-3xl font-bold text-blue-600 mt-4 drop-shadow">Next Step!</h2>
+            `;
+        } else if (type === 'sakura') {
+            const roundNum = extraParam || 2;
+            content.innerHTML = `
+                <div class="sakura-container drop-shadow-md">
+                    <div class="anim-sakura" style="animation-delay: 0s">🌸</div>
+                    <div class="anim-sakura" style="animation-delay: 0.2s">🌸</div>
+                    <div class="anim-sakura" style="animation-delay: 0.4s">🌸</div>
+                    <div class="anim-sakura" style="animation-delay: 0.1s">🌸</div>
+                    <div class="anim-sakura" style="animation-delay: 0.3s">🌸</div>
+                </div>
+                <h2 class="text-3xl font-bold text-pink-500 mt-4 drop-shadow">Round ${roundNum}!</h2>
+                <p class="text-stone-600 font-medium mt-2">Reviewing what you missed...</p>
+            `;
+        }
+
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+            if (callback) callback();
+        }, 1600);
+    },
+
+    // ----------------------------------------------------
+    // STEP 1: MEMORIZATION
+    // ----------------------------------------------------
+    startStep1() {
+        this.currentStep = 1;
+        this.currentIndex = 0;
+        this.s1_currentRound = 1;
+        this.s1_activeList = [...this.activeList];
+        this.s1_nextRoundQueue = [];
+        document.getElementById('round2-badge').classList.add('hidden');
+        
+        this.showPage('page-step1', true);
+        this.loadStep1Item();
+    },
+
+    loadStep1Item() {
+        let list = this.s1_activeList;
+        
+        if (this.currentIndex >= list.length) {
+            this.handleStep1End();
+            return;
+        }
+
+        const item = list[this.currentIndex];
+        document.getElementById('s1-id').innerText = item.id;
+        document.getElementById('s1-kanji').innerText = item.kanji;
+        document.getElementById('s1-reading').innerText = `(${item.reading})`;
+        document.getElementById('s1-kanjiMeaning').innerText = item.kanjiMeaning; // Display the meaning here
+        document.getElementById('s1-word').innerText = item.word;
+        document.getElementById('s1-wordreading').innerText = item.wordReading;
+        document.getElementById('s1-lao').innerText = item.lao;
+        document.getElementById('s1-thai').innerText = item.thai;
+
+        this.updateProgress(this.currentIndex + 1, list.length, "Step 1: Memorize");
+    },
+
+    step1Answer(remembered) {
+        if (this.s1_currentRound === 1 && remembered) {
+            this.stats_s1_correct++;
+        }
+        
+        if (!remembered) {
+            this.s1_nextRoundQueue.push(this.s1_activeList[this.currentIndex]);
+        }
+        
+        this.currentIndex++;
+        this.loadStep1Item();
+    },
+
+    handleStep1End() {
+        if (this.s1_nextRoundQueue.length > 0) {
+            this.s1_currentRound++;
+            this.s1_activeList = [...this.s1_nextRoundQueue];
+            this.s1_nextRoundQueue = [];
+            this.currentIndex = 0;
+            
+            const badge = document.getElementById('round2-badge');
+            badge.innerText = `Round ${this.s1_currentRound}: Reviewing Unremembered`;
+            badge.classList.remove('hidden');
+            
+            this.playAnimation('sakura', () => {
+                this.loadStep1Item();
+            }, this.s1_currentRound);
+        } else {
+            this.playAnimation('star', () => {
+                this.startStep2();
+            });
+        }
+    },
+
+    // ----------------------------------------------------
+    // STEP 2: QUIZ
+    // ----------------------------------------------------
+    startStep2() {
+        this.currentStep = 2;
+        this.s2_questions = [];
+        
+        // Generate Questions: 1 Reading, 1 Meaning per item
+        this.activeList.forEach(item => {
+            // Reading Q
+            let readOptions = this.getDistractors('wordReading', item.wordReading);
+            readOptions.push(item.wordReading);
+            this.s2_questions.push({ type: 'reading', target: item.word, answer: item.wordReading, options: this.shuffle(readOptions) });
+            
+            // Meaning Q
+            let meanOptions = this.getDistractors('lao', item.lao); // Using Lao as meaning base for quiz
+            meanOptions.push(`${item.lao} / ${item.thai}`);
+            // Fix distractor format
+            meanOptions = meanOptions.map(opt => {
+                 if(opt.includes('/')) return opt;
+                 const thaiMatch = kanjiData.find(k => k.lao === opt)?.thai || "";
+                 return `${opt} / ${thaiMatch}`;
+            });
+            this.s2_questions.push({ type: 'meaning', target: item.word, answer: `${item.lao} / ${item.thai}`, options: this.shuffle(meanOptions) });
+        });
+
+        this.s2_currentQ = 0;
+        this.showPage('page-step2', true);
+        this.loadStep2Item();
+    },
+
+    getDistractors(key, correctValue) {
+        let options = kanjiData.map(k => k[key]).filter(v => v !== correctValue);
+        // Remove duplicates
+        options = [...new Set(options)];
+        this.shuffle(options);
+        return options.slice(0, 2);
+    },
+
+    loadStep2Item() {
+        if (this.s2_currentQ >= this.s2_questions.length) {
+            this.playAnimation('star', () => {
+                this.startStep3();
+            });
+            return;
+        }
+
+        this.s2_answered = false;
+        this.s2_mistakeMade = false;
+        const q = this.s2_questions[this.s2_currentQ];
+        
+        document.getElementById('s2-question-type').innerText = q.type === 'reading' ? "Select Correct Reading" : "Select Correct Meaning";
+        document.getElementById('s2-target').innerText = q.target;
+        
+        const optsContainer = document.getElementById('s2-options');
+        optsContainer.innerHTML = '';
+        
+        q.options.forEach(opt => {
+            let btn = document.createElement('button');
+            btn.className = 'btn btn-outline py-2 px-3 flex items-center justify-center';
+            btn.style.minHeight = '3.5rem';
+            btn.style.fontSize = '0.95rem';
+            btn.style.lineHeight = '1.2';
+            btn.innerText = opt;
+            btn.onclick = () => this.handleStep2Select(btn, opt, q.answer);
+            optsContainer.appendChild(btn);
+        });
+
+        const nextBtn = document.getElementById('s2-next-btn');
+        nextBtn.disabled = true;
+        nextBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        
+        this.updateProgress(this.s2_currentQ + 1, this.s2_questions.length, "Step 2: Quiz");
+    },
+
+    handleStep2Select(btn, selected, correct) {
+        if (this.s2_answered) return; // Prevent multiple choices once correct
+        
+        const btns = document.getElementById('s2-options').children;
+
+        if (selected === correct) {
+            this.s2_answered = true; // Lock choice
+            if (!this.s2_mistakeMade) this.stats_s2_correct++;
+            
+            // Add correct highlight class
+            btn.classList.add('correct');
+            
+            // Disable all options and dim the untouched ones
+            for (let b of btns) {
+                b.disabled = true;
+                if (!b.classList.contains('correct') && !b.classList.contains('wrong')) {
+                    b.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+            }
+
+            // Enable the Next Question button
+            const nextBtn = document.getElementById('s2-next-btn');
+            nextBtn.disabled = false;
+            nextBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        } else {
+            this.s2_mistakeMade = true;
+            
+            // Add wrong highlight class and animation
+            btn.classList.remove('shake-anim');
+            void btn.offsetWidth; // trigger reflow to replay animation if needed
+            btn.classList.add('wrong', 'shake-anim');
+            
+            // Only disable the wrong button so the user can try again
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+    },
+
+    nextStep2() {
+        this.s2_currentQ++;
+        this.loadStep2Item();
+    },
+
+    // ----------------------------------------------------
+    // STEP 3: REARRANGEMENT
+    // ----------------------------------------------------
+    startStep3() {
+        this.currentStep = 3;
+        this.currentIndex = 0;
+        this.showPage('page-step3', true);
+        this.loadStep3Item();
+    },
+
+    loadStep3Item() {
+        if (this.currentIndex >= this.activeList.length) {
+            this.playAnimation('star', () => {
+                this.startStep4();
+            });
+            return;
+        }
+
+        const item = this.activeList[this.currentIndex];
+        document.getElementById('s3-target').innerText = item.word;
+        
+        this.s3_currentWordChars = item.wordReading.split('');
+        this.s3_userAnswers = [];
+        this.s3_mistakes = 0;
+        
+        const nextBtn = document.getElementById('s3-next-btn');
+        nextBtn.disabled = true;
+        nextBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        nextBtn.classList.remove('btn-success');
+        nextBtn.innerText = "Next Word";
+
+        this.renderStep3Board();
+        this.updateProgress(this.currentIndex + 1, this.activeList.length, "Step 3: Spelling");
+    },
+
+    renderStep3Board() {
+        const answerArea = document.getElementById('s3-answer-area');
+        const jumbleArea = document.getElementById('s3-jumble-area');
+        
+        answerArea.innerHTML = '';
+        jumbleArea.innerHTML = '';
+
+        // Create Slots
+        for (let i = 0; i < this.s3_currentWordChars.length; i++) {
+            let slot = document.createElement('div');
+            if (this.s3_userAnswers[i]) {
+                slot.className = 'answer-slot filled';
+                slot.innerText = this.s3_userAnswers[i].char;
+                slot.onclick = () => this.removeCharStep3(i);
+            } else {
+                slot.className = 'answer-slot';
+            }
+            answerArea.appendChild(slot);
+        }
+
+        // Create Jumbled Buttons (Only if initializing)
+        if (jumbleArea.children.length === 0) {
+            let shuffled = this.s3_currentWordChars.map((char, index) => ({ char, id: index }));
+            this.shuffle(shuffled);
+            
+            shuffled.forEach(obj => {
+                let btn = document.createElement('button');
+                btn.className = 'jumble-char';
+                btn.innerText = obj.char;
+                btn.id = `jchar-${obj.id}`;
+                
+                // If this specific char object is in answers, mark used
+                if (this.s3_userAnswers.find(a => a.id === obj.id)) {
+                    btn.classList.add('used');
+                }
+                
+                btn.onclick = () => this.addCharStep3(obj);
+                jumbleArea.appendChild(btn);
+            });
+        }
+    },
+
+    addCharStep3(obj) {
+        if (this.s3_userAnswers.length < this.s3_currentWordChars.length) {
+            this.s3_userAnswers.push(obj);
+            document.getElementById(`jchar-${obj.id}`).classList.add('used');
+            this.updateStep3Slots();
+            this.checkStep3Answer();
+        }
+    },
+
+    removeCharStep3(index) {
+        const obj = this.s3_userAnswers[index];
+        this.s3_userAnswers.splice(index, 1);
+        document.getElementById(`jchar-${obj.id}`).classList.remove('used');
+        this.updateStep3Slots();
+        this.checkStep3Answer();
+    },
+
+    updateStep3Slots() {
+        const answerArea = document.getElementById('s3-answer-area');
+        answerArea.innerHTML = '';
+        for (let i = 0; i < this.s3_currentWordChars.length; i++) {
+            let slot = document.createElement('div');
+            if (this.s3_userAnswers[i]) {
+                slot.className = 'answer-slot filled';
+                slot.innerText = this.s3_userAnswers[i].char;
+                // use let i block scope to pass correct index
+                slot.onclick = () => this.removeCharStep3(i); 
+            } else {
+                slot.className = 'answer-slot';
+            }
+            answerArea.appendChild(slot);
+        }
+    },
+
+    resetStep3() {
+        this.s3_userAnswers.forEach(obj => {
+            document.getElementById(`jchar-${obj.id}`).classList.remove('used');
+        });
+        this.s3_userAnswers = [];
+        this.updateStep3Slots();
+        this.checkStep3Answer();
+    },
+
+    checkStep3Answer() {
+        const currentAnswer = this.s3_userAnswers.map(a => a.char).join('');
+        const correctAnswer = this.activeList[this.currentIndex].wordReading;
+        const nextBtn = document.getElementById('s3-next-btn');
+        const slots = document.querySelectorAll('#s3-answer-area .answer-slot');
+
+        // Reset classes
+        slots.forEach(slot => {
+            slot.classList.remove('error-state', 'success-state', 'shake-anim');
+        });
+
+        if (this.s3_userAnswers.length === this.s3_currentWordChars.length) {
+            if (currentAnswer === correctAnswer) {
+                if (this.s3_mistakes === 0) this.stats_s3_correct++;
+                
+                slots.forEach(slot => slot.classList.add('success-state'));
+                
+                nextBtn.disabled = false;
+                nextBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'btn-primary');
+                nextBtn.classList.add('btn-success');
+                nextBtn.innerText = "Correct! Next";
+            } else {
+                this.s3_mistakes++;
+                
+                slots.forEach(slot => {
+                    slot.classList.add('error-state');
+                    // Trigger reflow to restart animation
+                    void slot.offsetWidth;
+                    slot.classList.add('shake-anim');
+                });
+                
+                nextBtn.disabled = true;
+                nextBtn.classList.add('opacity-50', 'cursor-not-allowed', 'btn-primary');
+                nextBtn.classList.remove('btn-success');
+                nextBtn.innerText = "Next Word";
+            }
+        } else {
+            nextBtn.disabled = true;
+            nextBtn.classList.add('opacity-50', 'cursor-not-allowed', 'btn-primary');
+            nextBtn.classList.remove('btn-success');
+            nextBtn.innerText = "Next Word";
+        }
+    },
+
+    nextStep3() {
+        this.currentIndex++;
+        this.loadStep3Item();
+    },
+
+    // ----------------------------------------------------
+    // STEP 4: INPUT
+    // ----------------------------------------------------
+    startStep4() {
+        this.currentStep = 4;
+        this.currentIndex = 0;
+        this.showPage('page-step4', true);
+        this.loadStep4Item();
+    },
+
+    loadStep4Item() {
+        if (this.currentIndex >= this.activeList.length) {
+            this.showSummary();
+            return;
+        }
+
+        this.s4_wrongAttempts = 0;
+        const item = this.activeList[this.currentIndex];
+        document.getElementById('s4-target').innerText = item.word;
+        
+        const input = document.getElementById('s4-input');
+        input.value = '';
+        input.disabled = false;
+        input.classList.remove('error-state', 'success-state', 'shake-anim');
+        input.focus();
+        
+        document.getElementById('s4-feedback').classList.add('hidden');
+        document.getElementById('s4-hint-container').classList.add('hidden');
+        
+        const nextBtn = document.getElementById('s4-next-btn');
+        nextBtn.disabled = true;
+        nextBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        nextBtn.classList.remove('btn-success');
+        nextBtn.innerText = "Next Word";
+
+        const checkBtn = document.getElementById('s4-check-btn');
+        checkBtn.classList.remove('hidden');
+
+        this.updateProgress(this.currentIndex + 1, this.activeList.length, "Step 4: Type Reading");
+    },
+
+    checkStep4Input() {
+        const val = document.getElementById('s4-input').value;
+        const correctAnswer = this.activeList[this.currentIndex].wordReading;
+        const nextBtn = document.getElementById('s4-next-btn');
+        const checkBtn = document.getElementById('s4-check-btn');
+        const feedback = document.getElementById('s4-feedback');
+        const input = document.getElementById('s4-input');
+        
+        // Reset classes for repeated attempts
+        input.classList.remove('error-state', 'success-state', 'shake-anim');
+        void input.offsetWidth; // Trigger reflow
+        
+        if (val.trim() === correctAnswer) {
+            if (this.s4_wrongAttempts === 0) this.stats_s4_correct++;
+            
+            input.classList.add('success-state');
+            
+            nextBtn.disabled = false;
+            nextBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'btn-primary');
+            nextBtn.classList.add('btn-success');
+            nextBtn.innerText = "Correct! Next";
+            
+            checkBtn.classList.add('hidden');
+            feedback.classList.remove('hidden', 'text-red-500');
+            feedback.classList.add('text-green-500');
+            feedback.innerText = "Correct!";
+            document.getElementById('s4-input').disabled = true;
+            document.getElementById('s4-hint-container').classList.add('hidden');
+        } else {
+             this.s4_wrongAttempts++;
+             input.classList.add('error-state', 'shake-anim');
+             
+             feedback.classList.remove('hidden', 'text-green-500');
+             feedback.classList.add('text-red-500');
+             feedback.innerText = "Incorrect. Try again!";
+             this.showProgressiveHint();
+        }
+    },
+
+    showProgressiveHint() {
+        const correctAnswer = this.activeList[this.currentIndex].wordReading;
+        const hintContainer = document.getElementById('s4-hint-container');
+        const hintEl = document.getElementById('s4-hint');
+        
+        hintContainer.classList.remove('hidden');
+        
+        let hintStr = "";
+        for(let i=0; i < correctAnswer.length; i++) {
+            if(i < this.s4_wrongAttempts) {
+                hintStr += correctAnswer[i] + " ";
+            } else {
+                hintStr += "_ ";
+            }
+        }
+        hintEl.innerText = hintStr.trim();
+    },
+
+    nextStep4() {
+        this.currentIndex++;
+        this.loadStep4Item();
+    },
+
+    // ----------------------------------------------------
+    // SUMMARY PAGE
+    // ----------------------------------------------------
+    showSummary() {
+        const endTime = new Date();
+        const timeDiff = Math.floor((endTime - this.startTime) / 1000); 
+        const minutes = Math.floor(timeDiff / 60);
+        const seconds = timeDiff % 60;
+        
+        const getPct = (correct, total) => total === 0 ? 0 : Math.round((correct / total) * 100);
+        
+        const acc1 = getPct(this.stats_s1_correct, this.stats_s1_total);
+        const acc2 = getPct(this.stats_s2_correct, this.stats_s2_total);
+        const acc3 = getPct(this.stats_s3_correct, this.stats_s3_total);
+        const acc4 = getPct(this.stats_s4_correct, this.stats_s4_total);
+
+        const overallAcc = Math.round((acc1 + acc2 + acc3 + acc4) / 4);
+
+        const startNo = document.getElementById('range-start').value;
+        const endNo = document.getElementById('range-end').value;
+
+        document.getElementById('sum-user').innerText = `${this.user.name} (${this.user.id})`;
+        document.getElementById('sum-datetime').innerText = endTime.toLocaleString();
+        document.getElementById('sum-time').innerText = `${minutes}m ${seconds}s`;
+        document.getElementById('sum-range').innerText = `No. ${startNo} - ${endNo} (${this.activeList.length} words)`;
+        
+        document.getElementById('sum-acc-1').innerText = `${acc1}%`;
+        document.getElementById('sum-acc-2').innerText = `${acc2}%`;
+        document.getElementById('sum-acc-3').innerText = `${acc3}%`;
+        document.getElementById('sum-acc-4').innerText = `${acc4}%`;
+        
+        const msgEl = document.getElementById('sum-message');
+        if (overallAcc >= 90) {
+            msgEl.innerText = "Amazing job! You mastered this set perfectly.";
+        } else if (overallAcc >= 70) {
+            msgEl.innerText = "Great effort! A little more practice and you'll master it.";
+        } else {
+            msgEl.innerText = "Good try! Make sure to review the words you missed.";
+        }
+
+        this.showPage('page-summary', false);
+    }
+};
+</script>
+</body>
+</html>
